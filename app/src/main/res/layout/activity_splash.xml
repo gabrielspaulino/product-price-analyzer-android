@@ -17,8 +17,8 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVerticalBias="0.45"
-        app:layout_constraintVerticalChainStyle="packed"/>
+        app:layout_constraintVertical_bias="0.45"
+        app:layout_constraintVertical_chainStyle="packed"/>
 
     <TextView
         android:id="@+id/tv_tagline"
@@ -30,7 +30,7 @@
         android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/tv_logo"/>
+        app:layout_constraintTop_toBottomOf="@id/iv_logo"/>
 
     <ProgressBar
         android:layout_width="wrap_content"
