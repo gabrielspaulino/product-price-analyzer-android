@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Dark mode: deep navy -->
+    <color name="bg_primary">#0D1117</color>
+    <color name="bg_secondary">#0D1117</color>
+    <color name="surface">#161B27</color>
+    <color name="surface_variant">#1C2333</color>
+
+    <!-- Header dark -->
+    <color name="header_bg">#111827</color>
+    <color name="header_text">#F9FAFB</color>
+
+    <!-- Purple accent in dark mode -->
+    <color name="accent_primary">#7B6CF6</color>
+    <color name="accent_primary_text">#FFFFFF</color>
+
+    <color name="accent_purple">#7B6CF6</color>
+    <color name="accent_purple_dark">#6355D8</color>
+
+    <!-- Text dark -->
+    <color name="text_primary">#F9FAFB</color>
+    <color name="text_secondary">#9CA3AF</color>
+    <color name="text_hint">#6B7280</color>
+    <color name="text_on_accent">#FFFFFF</color>
+
+    <!-- Cards dark -->
+    <color name="card_bg">#161B27</color>
+    <color name="card_stroke">#1F2937</color>
+
+    <!-- Input dark -->
+    <color name="input_bg">#1C2333</color>
+    <color name="input_stroke">#374151</color>
+    <color name="input_stroke_focused">#7B6CF6</color>
+
+    <!-- Status badges dark -->
+    <color name="badge_success_bg">#064E3B</color>
+    <color name="badge_success_text">#6EE7B7</color>
+    <color name="badge_loading_bg">#78350F</color>
+    <color name="badge_loading_text">#FCD34D</color>
+    <color name="badge_error_bg">#7F1D1D</color>
+    <color name="badge_error_text">#FCA5A5</color>
+    <color name="badge_idle_bg">#1F2937</color>
+    <color name="badge_idle_text">#9CA3AF</color>
+
+    <!-- Divider dark -->
+    <color name="divider">#1F2937</color>
+
+    <!-- Price dark -->
+    <color name="price_color">#7B6CF6</color>
+    <color name="price_target_met">#6EE7B7</color>
+
+    <!-- Analisar Todos outline dark -->
+    <color name="btn_outline_stroke">#374151</color>
+    <color name="btn_outline_text">#D1D5DB</color>
+
+    <!-- System -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="success_green">#10B981</color>
+    <color name="error_red">#EF4444</color>
+</resources>

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Light mode background: light blue-grey gradient -->
+    <color name="bg_primary">#EEF2F7</color>
+    <color name="bg_secondary">#F5F7FA</color>
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#F8F9FC</color>
+
+    <!-- Header: white in light, dark navy in dark -->
+    <color name="header_bg">#FFFFFF</color>
+    <color name="header_text">#111111</color>
+
+    <!-- Primary accent: black in light, purple in dark -->
+    <color name="accent_primary">#111111</color>
+    <color name="accent_primary_text">#FFFFFF</color>
+
+    <!-- Purple accent (used in dark mode, keep for reference) -->
+    <color name="accent_purple">#7B6CF6</color>
+    <color name="accent_purple_dark">#6355D8</color>
+
+    <!-- Text -->
+    <color name="text_primary">#111111</color>
+    <color name="text_secondary">#6B7280</color>
+    <color name="text_hint">#9CA3AF</color>
+    <color name="text_on_accent">#FFFFFF</color>
+
+    <!-- Cards -->
+    <color name="card_bg">#FFFFFF</color>
+    <color name="card_stroke">#E5E7EB</color>
+
+    <!-- Input fields -->
+    <color name="input_bg">#FFFFFF</color>
+    <color name="input_stroke">#D1D5DB</color>
+    <color name="input_stroke_focused">#111111</color>
+
+    <!-- Status badges -->
+    <color name="badge_success_bg">#D1FAE5</color>
+    <color name="badge_success_text">#065F46</color>
+    <color name="badge_loading_bg">#FEF3C7</color>
+    <color name="badge_loading_text">#92400E</color>
+    <color name="badge_error_bg">#FEE2E2</color>
+    <color name="badge_error_text">#991B1B</color>
+    <color name="badge_idle_bg">#F3F4F6</color>
+    <color name="badge_idle_text">#6B7280</color>
+
+    <!-- Divider -->
+    <color name="divider">#E5E7EB</color>
+
+    <!-- Price color -->
+    <color name="price_color">#111111</color>
+    <color name="price_target_met">#065F46</color>
+
+    <!-- Analisar Todos button outline -->
+    <color name="btn_outline_stroke">#D1D5DB</color>
+    <color name="btn_outline_text">#374151</color>
+
+    <!-- System -->
+    <color name="white">#FFFFFF</color>
+    <color name="black">#000000</color>
+    <color name="transparent">#00000000</color>
+    <color name="success_green">#10B981</color>
+    <color name="error_red">#EF4444</color>
+</resources>

@@ -1,0 +1,30 @@
+[
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/item_snapshot.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/item_snapshot.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/item_product_card.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/item_product_card.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/activity_main.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/activity_main.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/activity_product_detail.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/activity_product_detail.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/activity_settings.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/activity_settings.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/activity_splash.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/activity_splash.xml"
+    },
+    {
+        "merged": "com.owly.pricetracker.app-mergeDebugResources-41:/layout/activity_auth.xml",
+        "source": "com.owly.pricetracker.app-main-44:/layout/activity_auth.xml"
+    }
+]

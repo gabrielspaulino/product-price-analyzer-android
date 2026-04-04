@@ -1,0 +1,19 @@
+{
+    "logs": [
+        {
+            "outputFile": "com.owly.pricetracker.app-mergeDebugResources-40:/values-ldrtl-v17/values-ldrtl-v17.xml",
+            "map": [
+                {
+                    "source": "C:\\Users\\gabri\\.gradle\\caches\\transforms-3\\5f4e9d58b29c688206cc2b1ef8af473f\\transformed\\material-1.11.0\\res\\values-ldrtl-v17\\values-ldrtl-v17.xml",
+                    "from": {
+                        "startLines": "2,3",
+                        "startColumns": "4,4",
+                        "startOffsets": "55,191",
+                        "endColumns": "135,140",
+                        "endOffsets": "186,327"
+                    }
+                }
+            ]
+        }
+    ]
+}
