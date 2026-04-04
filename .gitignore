@@ -1,0 +1,74 @@
+# Default ignored files
+/shelf/
+/workspace.xml
+
+# =========================
+# 🧱 Build outputs
+# =========================
+/build/
+/app/build/
+/*/build/
+
+# =========================
+# ⚙️ Gradle
+# =========================
+.gradle/
+local.properties
+
+# =========================
+# 🧠 Android Studio / IntelliJ
+# =========================
+.idea/
+*.iml
+*.iws
+*.ipr
+
+# =========================
+# 📦 Generated files
+# =========================
+captures/
+.externalNativeBuild/
+.cxx/
+
+# =========================
+# 🔐 Signing configs (IMPORTANT)
+# =========================
+*.jks
+*.keystore
+key.properties
+
+# =========================
+# 📱 APK / AAB outputs
+# =========================
+*.apk
+*.aab
+
+# =========================
+# 🧪 Logs & temp files
+# =========================
+*.log
+*.tmp
+*.temp
+
+# =========================
+# 🧬 OS-specific files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# 🧰 NDK (if used)
+# =========================
+obj/
+lib/
+
+# =========================
+# 🧪 Test outputs
+# =========================
+/test-results/
+/androidTest-results/
+
+# =========================
+# 🗂️ Misc
+# =========================
+.navigation/
