@@ -6,6 +6,13 @@ android {
     namespace 'com.owly.pricetracker'
     compileSdk 34
 
+    // ── Load local.properties ──
+    def localProperties = new Properties()
+    def localPropertiesFile = rootProject.file("local.properties")
+    if (localPropertiesFile.exists()) {
+        localProperties.load(new FileInputStream(localPropertiesFile))
+    }
+
     defaultConfig {
         applicationId "com.owly.pricetracker"
         minSdk 26
@@ -14,9 +21,9 @@ android {
         versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
 
-        // ── Replace these with your Supabase project credentials ──
-        buildConfigField "String", "SUPABASE_URL",      "\"YOUR_SUPABASE_URL\""
-        buildConfigField "String", "SUPABASE_ANON_KEY", "\"YOUR_SUPABASE_ANON_KEY\""
+        // ── Inject Supabase values from local.properties ──
+        buildConfigField "String", "SUPABASE_URL", "\"${localProperties.getProperty('SUPABASE_URL', '')}\""
+        buildConfigField "String", "SUPABASE_ANON_KEY", "\"${localProperties.getProperty('SUPABASE_ANON_KEY', '')}\""
     }
 
     buildTypes {
