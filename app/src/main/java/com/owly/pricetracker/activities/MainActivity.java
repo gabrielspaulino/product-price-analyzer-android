@@ -25,7 +25,6 @@ import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
 import com.owly.pricetracker.R;
 import com.owly.pricetracker.adapters.ProductAdapter;
-import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.models.Product;
 import com.owly.pricetracker.models.User;
 import com.owly.pricetracker.services.SerperApiService;
@@ -34,7 +33,9 @@ import com.owly.pricetracker.utils.LogoLoader;
 import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
 import com.owly.pricetracker.utils.NotificationHelper;
 import com.owly.pricetracker.utils.NotificationPrefs;
+import com.owly.pricetracker.utils.ProductAnalysisManager;
 import com.owly.pricetracker.utils.SessionManager;
+import com.owly.pricetracker.work.ProductAnalysisScheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -75,6 +76,7 @@ public class MainActivity extends AppCompatActivity
     private User currentUser;
     private NotificationPrefs notificationPrefs;
     private ActivityResultLauncher<String> notificationPermissionLauncher;
+    private ProductAnalysisManager analysisManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -92,6 +94,8 @@ public class MainActivity extends AppCompatActivity
         setupRecycler();
         initSerperKey();
         initNotificationSupport();
+        analysisManager = new ProductAnalysisManager(this, currentUser);
+        ProductAnalysisScheduler.schedule(this);
         loadProducts();
     }
 
@@ -214,9 +218,7 @@ public class MainActivity extends AppCompatActivity
         notificationPrefs = new NotificationPrefs(this);
         notificationPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
-                granted -> {
-                    if (granted) maybeCheckForNewSales();
-                });
+                granted -> Log.d(TAG, "Notification permission granted: " + granted));
 
         NotificationHelper.createNotificationChannel(this);
         if (NotificationHelper.needsRuntimePermission()
@@ -245,31 +247,6 @@ public class MainActivity extends AppCompatActivity
                 .show();
     }
 
-    private void maybeCheckForNewSales() {
-        if (products.isEmpty()) return;
-        if (!NotificationHelper.canPostNotifications(this)) return;
-        executor.execute(() -> {
-            for (Product product : new ArrayList<>(products)) {
-                try {
-                    PriceSnapshot latest = SupabaseService.getInstance()
-                            .getLatestSnapshot(currentUser.getAccessToken(), product.getId());
-                    if (latest == null || latest.getId() == null) continue;
-                    String saved = notificationPrefs.getLastSnapshotId(product.getId());
-                    if (saved == null) {
-                        notificationPrefs.saveLastSnapshotId(product.getId(), latest.getId());
-                        continue;
-                    }
-                    if (!latest.getId().equals(saved)) {
-                        notificationPrefs.saveLastSnapshotId(product.getId(), latest.getId());
-                        NotificationHelper.sendSaleNotification(this, product, latest);
-                    }
-                } catch (Exception e) {
-                    Log.w(TAG, "sale check failed for " + product.getName(), e);
-                }
-            }
-        });
-    }
-
     // ── Data loading ─────────────────────────────────────────────────────────
 
     private void loadProducts() {
@@ -287,8 +264,6 @@ public class MainActivity extends AppCompatActivity
                     updateEmptyState();
                     if (products.isEmpty()) {
                         loadTrending();
-                    } else {
-                        maybeCheckForNewSales();
                     }
                 });
             } catch (Exception e) {
@@ -369,49 +344,8 @@ public class MainActivity extends AppCompatActivity
             toast("Configure a chave Serper nas configurações");
             return;
         }
-        int idx = products.indexOf(product);
-        product.setAnalyzing(true);
-        product.setStatus("loading");
-        if (idx >= 0) adapter.notifyItemChanged(idx);
-
-        executor.execute(() -> {
-            try {
-                // Twitter-only search, matching the web app behaviour
-                List<PriceSnapshot> all = new ArrayList<>(
-                        SerperApiService.getInstance().searchTwitterPrices(product.getName()));
-
-                double lowest = Double.MAX_VALUE;
-                for (PriceSnapshot s : all) {
-                    s.setProductId(product.getId());
-                    SupabaseService.getInstance().saveSnapshot(currentUser.getAccessToken(), s);
-                    if (s.getPrice() < lowest) lowest = s.getPrice();
-                }
-
-                double finalLowest = lowest == Double.MAX_VALUE ? 0 : lowest;
-                if (finalLowest > 0)
-                    SupabaseService.getInstance().updateProductPrice(
-                            currentUser.getAccessToken(), product.getId(), finalLowest);
-
-                runOnUiThread(() -> {
-                    product.setAnalyzing(false);
-                    product.setStatus("success");
-                    if (finalLowest > 0) product.setCurrentPrice(finalLowest);
-                    product.setLastUpdated(java.time.Instant.now().toString());
-                    int i = products.indexOf(product);
-                    if (i >= 0) adapter.notifyItemChanged(i);
-                    if (product.isTargetReached())
-                        toast("🎯 " + product.getName() + " atingiu o preço alvo!");
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    product.setAnalyzing(false);
-                    product.setStatus("error");
-                    int i = products.indexOf(product);
-                    if (i >= 0) adapter.notifyItemChanged(i);
-                    toast("Erro: " + e.getMessage());
-                });
-            }
-        });
+        markProductLoading(product);
+        executor.execute(() -> runAnalysisInBackground(product));
     }
 
     private void analyzeAll() {
@@ -421,7 +355,35 @@ public class MainActivity extends AppCompatActivity
         }
         if (products.isEmpty()) { toast("Nenhum produto para analisar"); return; }
         toast("Analisando " + products.size() + " produto(s)…");
-        for (Product p : new ArrayList<>(products)) analyze(p);
+        executor.execute(() -> {
+            List<Product> snapshot = new ArrayList<>(products);
+            for (Product product : snapshot) {
+                markProductLoading(product);
+                runAnalysisInBackground(product);
+            }
+        });
+    }
+
+    private void markProductLoading(Product product) {
+        runOnUiThread(() -> {
+            int idx = products.indexOf(product);
+            product.setAnalyzing(true);
+            product.setStatus("loading");
+            if (idx >= 0) adapter.notifyItemChanged(idx);
+        });
+    }
+
+    private void runAnalysisInBackground(Product product) {
+        ProductAnalysisManager.Result result = analysisManager.analyzeProduct(product);
+        runOnUiThread(() -> {
+            int idx = products.indexOf(product);
+            if (idx >= 0) adapter.notifyItemChanged(idx);
+            if (!result.success) {
+                toast("Erro: " + (result.errorMessage != null ? result.errorMessage : "Erro inesperado"));
+            } else if (product.isTargetReached()) {
+                toast("🎯 " + product.getName() + " atingiu o preço alvo!");
+            }
+        });
     }
 
     // ── Adapter callbacks ─────────────────────────────────────────────────────

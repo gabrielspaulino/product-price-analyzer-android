@@ -31,4 +31,12 @@ public class NotificationPrefs {
         if (productId == null) return null;
         return prefs.getString(KEY_LAST_SNAPSHOT_PREFIX + productId, null);
     }
+
+    public boolean markSnapshot(String productId, String snapshotKey) {
+        if (productId == null || snapshotKey == null) return false;
+        String stored = prefs.getString(KEY_LAST_SNAPSHOT_PREFIX + productId, null);
+        if (snapshotKey.equals(stored)) return false;
+        prefs.edit().putString(KEY_LAST_SNAPSHOT_PREFIX + productId, snapshotKey).apply();
+        return true;
+    }
 }
