@@ -161,7 +161,7 @@ public class ProductDetailActivity extends AppCompatActivity {
             try {
                 // Twitter-only search, matching the web app behaviour
                 List<PriceSnapshot> all = new ArrayList<>(
-                        SerperApiService.getInstance().searchTwitterPrices(productName));
+                        SerperApiService.getInstance().searchTwitterPrices(productName, lastUpdated));
 
                 double lowest = Double.MAX_VALUE;
                 for (PriceSnapshot s : all) {

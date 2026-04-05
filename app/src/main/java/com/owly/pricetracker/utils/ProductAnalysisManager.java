@@ -36,7 +36,7 @@ public class ProductAnalysisManager {
 
         try {
             List<PriceSnapshot> snapshots = new ArrayList<>(
-                    SerperApiService.getInstance().searchTwitterPrices(product.getName()));
+                    SerperApiService.getInstance().searchTwitterPrices(product.getName(), product.getLastUpdated()));
             double lowest = Double.MAX_VALUE;
             for (PriceSnapshot snapshot : snapshots) {
                 snapshot.setProductId(product.getId());

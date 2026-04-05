@@ -6,6 +6,8 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.owly.pricetracker.models.PriceSnapshot;
 
+import org.apache.commons.lang3.StringUtils;
+
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -69,11 +71,12 @@ public class SerperApiService {
      * Filters results to twitter.com / x.com links only.
      * Extracts R$ product prices from snippet text, ignoring coupon/discount values.
      */
-    public List<PriceSnapshot> searchTwitterPrices(String productName) throws IOException {
+    public List<PriceSnapshot> searchTwitterPrices(String productName, String lastUpdated) throws IOException {
         if (!hasApiKey()) throw new IOException("Chave da API Serper não configurada");
 
         JsonObject body = new JsonObject();
-        body.addProperty("q", "from:@xetdaspromocoes " + productName);
+        body.addProperty("q", "from:@xetdaspromocoes " + productName +
+                (StringUtils.isBlank(lastUpdated) ? "" : (" since:" + lastUpdated.split(" ")[0])));
         body.addProperty("gl", "br");
         body.addProperty("hl", "pt-br");
         body.addProperty("num", 10);
