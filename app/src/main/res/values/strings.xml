@@ -47,4 +47,13 @@
     <string name="trending_title">🔥 Em Alta</string>
     <string name="info_icon">i</string>
     <string name="logo_text">Logo</string>
+    <string name="notification_channel_sales">Alertas de promoções</string>
+    <string name="notification_channel_sales_desc">Notificações quando houver novas vendas nos produtos monitorados</string>
+    <string name="notification_sale_title">Nova oferta: %s</string>
+    <string name="notification_sale_body">%s disponível por %s</string>
+    <string name="notification_sale_default_source">oferta</string>
+    <string name="notification_permission_title">Receber notificações</string>
+    <string name="notification_permission_message">Permita que a Owly avise sempre que produtos da sua lista ganharam uma nova promoção.</string>
+    <string name="notification_permission_allow">Permitir</string>
+    <string name="notification_permission_cancel">Cancelar</string>
 </resources>

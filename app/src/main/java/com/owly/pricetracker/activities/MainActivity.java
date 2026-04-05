@@ -1,7 +1,9 @@
 package com.owly.pricetracker.activities;
 
+import android.Manifest;
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -9,6 +11,8 @@ import android.widget.ProgressBar;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
@@ -28,8 +32,9 @@ import com.owly.pricetracker.services.SerperApiService;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.LogoLoader;
 import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
+import com.owly.pricetracker.utils.NotificationHelper;
+import com.owly.pricetracker.utils.NotificationPrefs;
 import com.owly.pricetracker.utils.SessionManager;
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +42,8 @@ import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity
         implements ProductAdapter.Listener {
+
+    private static final String TAG = "MainActivity";
 
     // Header
     private android.widget.ImageView ivLogo;
@@ -66,6 +73,8 @@ public class MainActivity extends AppCompatActivity
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private SessionManager session;
     private User currentUser;
+    private NotificationPrefs notificationPrefs;
+    private ActivityResultLauncher<String> notificationPermissionLauncher;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -82,6 +91,7 @@ public class MainActivity extends AppCompatActivity
         setupAddProduct();
         setupRecycler();
         initSerperKey();
+        initNotificationSupport();
         loadProducts();
     }
 
@@ -200,6 +210,66 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
+    private void initNotificationSupport() {
+        notificationPrefs = new NotificationPrefs(this);
+        notificationPermissionLauncher = registerForActivityResult(
+                new ActivityResultContracts.RequestPermission(),
+                granted -> {
+                    if (granted) maybeCheckForNewSales();
+                });
+
+        NotificationHelper.createNotificationChannel(this);
+        if (NotificationHelper.needsRuntimePermission()
+                && !NotificationHelper.canPostNotifications(this)) {
+            maybeAskNotificationPermission();
+        }
+    }
+
+    private void maybeAskNotificationPermission() {
+        if (!NotificationHelper.needsRuntimePermission()) return;
+        if (NotificationHelper.canPostNotifications(this)) {
+            notificationPrefs.markPermissionRequested();
+            return;
+        }
+        if (notificationPrefs.isPermissionRequested()) return;
+
+        new AlertDialog.Builder(this, R.style.OwlyDialog)
+                .setTitle(R.string.notification_permission_title)
+                .setMessage(R.string.notification_permission_message)
+                .setPositiveButton(R.string.notification_permission_allow, (d, w) -> {
+                    notificationPrefs.markPermissionRequested();
+                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+                })
+                .setNegativeButton(R.string.notification_permission_cancel, (d, w) ->
+                        notificationPrefs.markPermissionRequested())
+                .show();
+    }
+
+    private void maybeCheckForNewSales() {
+        if (products.isEmpty()) return;
+        if (!NotificationHelper.canPostNotifications(this)) return;
+        executor.execute(() -> {
+            for (Product product : new ArrayList<>(products)) {
+                try {
+                    PriceSnapshot latest = SupabaseService.getInstance()
+                            .getLatestSnapshot(currentUser.getAccessToken(), product.getId());
+                    if (latest == null || latest.getId() == null) continue;
+                    String saved = notificationPrefs.getLastSnapshotId(product.getId());
+                    if (saved == null) {
+                        notificationPrefs.saveLastSnapshotId(product.getId(), latest.getId());
+                        continue;
+                    }
+                    if (!latest.getId().equals(saved)) {
+                        notificationPrefs.saveLastSnapshotId(product.getId(), latest.getId());
+                        NotificationHelper.sendSaleNotification(this, product, latest);
+                    }
+                } catch (Exception e) {
+                    Log.w(TAG, "sale check failed for " + product.getName(), e);
+                }
+            }
+        });
+    }
+
     // ── Data loading ─────────────────────────────────────────────────────────
 
     private void loadProducts() {
@@ -215,7 +285,11 @@ public class MainActivity extends AppCompatActivity
                     products.addAll(loaded);
                     adapter.notifyDataSetChanged();
                     updateEmptyState();
-                    if (products.isEmpty()) loadTrending();
+                    if (products.isEmpty()) {
+                        loadTrending();
+                    } else {
+                        maybeCheckForNewSales();
+                    }
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {

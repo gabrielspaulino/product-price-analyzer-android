@@ -295,30 +295,43 @@ public class SupabaseService {
     }
 
     public List<PriceSnapshot> getSnapshots(String token, String productId) throws IOException {
+        return querySnapshots(token, productId, 20);
+    }
+
+    public PriceSnapshot getLatestSnapshot(String token, String productId) throws IOException {
+        List<PriceSnapshot> list = querySnapshots(token, productId, 1);
+        return list.isEmpty() ? null : list.get(0);
+    }
+
+    private List<PriceSnapshot> querySnapshots(String token, String productId, int limit) throws IOException {
         String url = baseUrl + "/rest/v1/price_snapshots?product_id=eq." + productId
-                + "&order=captured_at.desc&limit=20";
+                + "&order=captured_at.desc&limit=" + limit;
         try (Response r = http.newCall(authGet(token, url)).execute()) {
             String rb = r.body().string();
             if (!r.isSuccessful()) throw new IOException("Erro ao buscar histórico");
             List<PriceSnapshot> list = new ArrayList<>();
             for (JsonElement el : JsonParser.parseString(rb).getAsJsonArray()) {
-                JsonObject o = el.getAsJsonObject();
-                PriceSnapshot s = new PriceSnapshot();
-                s.setId(str(o, "id"));
-                s.setProductId(str(o, "product_id"));
-                s.setPrice(o.get("price").getAsDouble());
-                if (o.has("source_account") && !o.get("source_account").isJsonNull())
-                    s.setSourceAccount(o.get("source_account").getAsString());
-                if (o.has("tweet_excerpt") && !o.get("tweet_excerpt").isJsonNull())
-                    s.setTweetExcerpt(o.get("tweet_excerpt").getAsString());
-                if (o.has("tweet_url") && !o.get("tweet_url").isJsonNull())
-                    s.setTweetUrl(o.get("tweet_url").getAsString());
-                if (o.has("captured_at") && !o.get("captured_at").isJsonNull())
-                    s.setCapturedAt(o.get("captured_at").getAsString());
-                list.add(s);
+                list.add(parseSnapshot(el.getAsJsonObject()));
             }
             return list;
         }
+    }
+
+    private PriceSnapshot parseSnapshot(JsonObject o) {
+        PriceSnapshot s = new PriceSnapshot();
+        s.setId(str(o, "id"));
+        s.setProductId(str(o, "product_id"));
+        if (o.has("price") && !o.get("price").isJsonNull())
+            s.setPrice(o.get("price").getAsDouble());
+        if (o.has("source_account") && !o.get("source_account").isJsonNull())
+            s.setSourceAccount(o.get("source_account").getAsString());
+        if (o.has("tweet_excerpt") && !o.get("tweet_excerpt").isJsonNull())
+            s.setTweetExcerpt(o.get("tweet_excerpt").getAsString());
+        if (o.has("tweet_url") && !o.get("tweet_url").isJsonNull())
+            s.setTweetUrl(o.get("tweet_url").getAsString());
+        if (o.has("captured_at") && !o.get("captured_at").isJsonNull())
+            s.setCapturedAt(o.get("captured_at").getAsString());
+        return s;
     }
 
     // ─── Trending ────────────────────────────────────────────────────────────
