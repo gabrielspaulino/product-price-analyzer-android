@@ -11,7 +11,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import com.google.android.material.textfield.TextInputEditText;
@@ -21,6 +20,7 @@ import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.models.User;
 import com.owly.pricetracker.services.SerperApiService;
 import com.owly.pricetracker.services.SupabaseService;
+import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
 import com.owly.pricetracker.utils.SessionManager;
 
 import java.text.SimpleDateFormat;
@@ -88,9 +88,12 @@ public class ProductDetailActivity extends AppCompatActivity {
         recyclerHistory  = findViewById(R.id.recycler_history);
 
         snapshotAdapter = new SnapshotAdapter(snapshots);
-        recyclerHistory.setLayoutManager(new LinearLayoutManager(this));
+        recyclerHistory.setLayoutManager(new NonScrollableLinearLayoutManager(this));
         recyclerHistory.setAdapter(snapshotAdapter);
+        // nestedScrollingEnabled=false lets NestedScrollView handle scrolling
+        // and forces RecyclerView to measure and render ALL items at once
         recyclerHistory.setNestedScrollingEnabled(false);
+        recyclerHistory.setHasFixedSize(false);
 
         findViewById(R.id.tv_header_title).setVisibility(View.GONE); // we show in card
 

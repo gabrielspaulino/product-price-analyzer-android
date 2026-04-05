@@ -24,10 +24,23 @@ public class SerperApiService {
     private static final String SERPER_URL = "https://google.serper.dev/search";
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
 
-    // Matches "R$ 2.499,00" or "R$2499,00" or "R$ 2.499" — captures only the numeric part
-    // Uses a lookahead so we don't consume what's after the number
+    /**
+     * Matches "R$" followed by a number in Brazilian format.
+     * Captures the full numeric string including dots/commas.
+     * Examples matched: "R$ 5.899", "R$ 5.899,00", "R$ 249,90", "R$1299"
+     */
     private static final Pattern PRICE_PATTERN = Pattern.compile(
             "R\\$\\s*([\\d]+(?:[.,][\\d]+)*)",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    /**
+     * Context words that indicate the number after R$ is NOT the product price
+     * but rather a discount, coupon value, cashback, etc.
+     * Based on the web app's api.js filtering logic.
+     */
+    private static final Pattern COUPON_CONTEXT_PATTERN = Pattern.compile(
+            "(?:cupom|cupon|desconto|cashback|volta|off|de desconto|frete|taxa)\\s+(?:de\\s+)?R\\$",
             Pattern.CASE_INSENSITIVE
     );
 
@@ -51,10 +64,10 @@ public class SerperApiService {
     public boolean hasApiKey() { return apiKey != null && !apiKey.isEmpty(); }
 
     /**
-     * Twitter-only search via Serper, exactly mirroring the web app's searchTwitterPrices().
+     * Twitter-only search via Serper, mirroring the web app's searchTwitterPrices().
      * Query: "from:@xetdaspromocoes <productName>"
      * Filters results to twitter.com / x.com links only.
-     * Extracts R$ prices from snippet text.
+     * Extracts R$ product prices from snippet text, ignoring coupon/discount values.
      */
     public List<PriceSnapshot> searchTwitterPrices(String productName) throws IOException {
         if (!hasApiKey()) throw new IOException("Chave da API Serper não configurada");
@@ -81,16 +94,14 @@ public class SerperApiService {
             String title   = item.has("title")   ? item.get("title").getAsString()   : "";
             String combined = title + " " + snippet;
 
-            Double price = extractPriceFromText(combined);
+            Double price = extractProductPrice(combined);
             if (price == null) continue;
 
-            // Extract the source account from the URL (e.g. @xetdaspromocoes)
             String sourceAccount = extractTwitterHandle(link);
 
             PriceSnapshot s = new PriceSnapshot();
             s.setPrice(price);
             s.setSourceAccount(sourceAccount);
-            // Use snippet as excerpt (up to 280 chars like a tweet)
             s.setTweetExcerpt(snippet.length() > 280 ? snippet.substring(0, 280) + "…" : snippet);
             s.setTweetUrl(link);
             results.add(s);
@@ -99,7 +110,96 @@ public class SerperApiService {
         return results;
     }
 
-    // ── Private helpers ───────────────────────────────────────────────────────
+    // ── Price extraction ──────────────────────────────────────────────────────
+
+    /**
+     * Extracts the product price from tweet text.
+     *
+     * Key rules (matching web app api.js logic):
+     *
+     * 1. DOT is ALWAYS a thousands separator in Brazilian prices, NEVER decimal.
+     *    "R$ 5.348"  → 5348   (NOT 5.35)
+     *    "R$ 5.899"  → 5899
+     *    "R$ 1.299,90" → 1299.90
+     *
+     * 2. COMMA is always the decimal separator.
+     *    "R$ 249,90" → 249.90
+     *    "R$ 5.899,00" → 5899.00
+     *
+     * 3. Skip prices that are preceded by coupon/discount context words
+     *    ("cupom de R$ 90", "R$ 90 OFF", "desconto de R$ 50", etc.)
+     *    because those are discount amounts, not product prices.
+     *
+     * 4. Among all valid prices found, pick the LARGEST one (most likely the
+     *    actual product price, not a partial/coupon value). The web app uses
+     *    the first price found, but filtering coupons first and then taking
+     *    the highest remaining value is more robust.
+     */
+    private Double extractProductPrice(String text) {
+        if (text == null || text.isEmpty()) return null;
+
+        // First, blank out coupon/discount contexts to avoid matching them
+        // e.g. "cupom de R$ 90" → "cupom de XXXXX" so the R$90 won't be matched
+        String cleaned = COUPON_CONTEXT_PATTERN.matcher(text).replaceAll(Matcher.quoteReplacement("DESCONTO_REMOVIDO"));
+
+        // Also remove "R$ XX OFF" patterns (e.g. "R$ 90 OFF")
+        cleaned = cleaned.replaceAll("R\\$\\s*[\\d.,]+\\s+(?:off|OFF|Off)", "DESCONTO_OFF");
+
+        Matcher m = PRICE_PATTERN.matcher(cleaned);
+        List<Double> candidates = new ArrayList<>();
+
+        while (m.find()) {
+            String numStr = m.group(1);
+            Double price = parseBrazilianPrice(numStr);
+            if (price != null) candidates.add(price);
+        }
+
+        if (candidates.isEmpty()) return null;
+
+        // Return the highest price found — in a promo tweet the product price
+        // is typically the largest number (coupon values are smaller)
+        Double highest = null;
+        for (Double p : candidates) {
+            if (highest == null || p > highest) highest = p;
+        }
+        return highest;
+    }
+
+    /**
+     * Converts a Brazilian-format number string to a Java double.
+     *
+     * Rules:
+     * - Dots are ALWAYS thousands separators → strip them
+     * - Commas are ALWAYS decimal separators → replace with dot
+     *
+     * Examples:
+     *   "5.348"    → 5348.0
+     *   "5.899,00" → 5899.0
+     *   "249,90"   → 249.9
+     *   "1299"     → 1299.0
+     */
+    private Double parseBrazilianPrice(String numStr) {
+        if (numStr == null || numStr.isEmpty()) return null;
+        numStr = numStr.trim();
+
+        // Remove all dots (thousands separators)
+        numStr = numStr.replace(".", "");
+
+        // Replace comma with dot (decimal separator)
+        numStr = numStr.replace(",", ".");
+
+        double value;
+        try {
+            value = Double.parseDouble(numStr);
+        } catch (NumberFormatException e) {
+            return null;
+        }
+
+        // Sanity check: valid product prices are between R$ 1 and R$ 999.999
+        return (value >= 1.0 && value < 1_000_000.0) ? value : null;
+    }
+
+    // ── HTTP ──────────────────────────────────────────────────────────────────
 
     private JsonObject post(JsonObject body) throws IOException {
         Request req = new Request.Builder()
@@ -115,74 +215,15 @@ public class SerperApiService {
         }
     }
 
-    /**
-     * Extracts the lowest R$ price from text.
-     * Handles Brazilian number format:
-     *   "R$ 2.499,00" → 2499.00   (dot = thousands separator, comma = decimal)
-     *   "R$ 2499,00"  → 2499.00
-     *   "R$ 249,90"   → 249.90
-     *   "R$ 2.06"     → ignored (dot can't be thousands when only 2 digits follow — this was a bug)
-     *
-     * Rule (matching web app api.js logic):
-     * - If the string has both dot AND comma → dot is thousands, comma is decimal
-     *   e.g. "2.499,00" → remove dots → "2499,00" → replace comma → "2499.00"
-     * - If only comma → comma is decimal  e.g. "2499,00" → "2499.00"
-     * - If only dot  → dot is thousands separator IFF there are exactly 3 digits after it
-     *   (e.g. "2.499" → 2499),  otherwise dot is decimal (e.g. "2.5" → 2.5)
-     */
-    private Double parseBrazilianPrice(String numStr) {
-        if (numStr == null || numStr.isEmpty()) return null;
-        numStr = numStr.trim();
-
-        double value;
-        if (numStr.contains(",") && numStr.contains(".")) {
-            // Both separators: dot=thousands, comma=decimal  e.g. "2.499,00"
-            numStr = numStr.replace(".", "").replace(",", ".");
-        } else if (numStr.contains(",")) {
-            // Only comma: comma=decimal  e.g. "2499,90"
-            numStr = numStr.replace(",", ".");
-        } else if (numStr.contains(".")) {
-            // Only dot: determine if thousands or decimal
-            int dotIdx = numStr.lastIndexOf('.');
-            String afterDot = numStr.substring(dotIdx + 1);
-            if (afterDot.length() == 3) {
-                // Thousands separator: "2.499" → 2499
-                numStr = numStr.replace(".", "");
-            }
-            // else decimal: leave as-is e.g. "2.50"
-        }
-
-        try {
-            value = Double.parseDouble(numStr);
-        } catch (NumberFormatException e) {
-            return null;
-        }
-
-        // Sanity check: prices should be between R$1 and R$999.999
-        return (value >= 1.0 && value < 1_000_000.0) ? value : null;
-    }
-
-    private Double extractPriceFromText(String text) {
-        if (text == null || text.isEmpty()) return null;
-        Matcher m = PRICE_PATTERN.matcher(text);
-        Double lowestPrice = null;
-        while (m.find()) {
-            String numStr = m.group(1); // e.g. "2.499,00" or "2499,00"
-            Double price = parseBrazilianPrice(numStr);
-            if (price != null && (lowestPrice == null || price < lowestPrice)) {
-                lowestPrice = price;
-            }
-        }
-        return lowestPrice;
-    }
+    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private String extractTwitterHandle(String url) {
-        // e.g. https://twitter.com/xetdaspromocoes/status/123 → @xetdaspromocoes
         try {
             String[] parts = url.split("/");
             for (int i = 0; i < parts.length; i++) {
                 if ((parts[i].equals("twitter.com") || parts[i].equals("x.com"))
-                        && i + 1 < parts.length && !parts[i+1].isEmpty()) {
+                        && i + 1 < parts.length && !parts[i + 1].isEmpty()
+                        && !parts[i + 1].equals("status")) {
                     return "@" + parts[i + 1];
                 }
             }
@@ -194,9 +235,8 @@ public class SerperApiService {
      * Formats a price in Brazilian Real format: R$ 2.499,00
      */
     public static String formatPrice(double price) {
-        // Use US locale to get consistent number formatting then convert
         String usFormatted = String.format(Locale.US, "%,.2f", price);
-        // US format: 2,499.00 → convert to BR: 2.499,00
+        // "2,499.00" → "2.499,00"
         return "R$ " + usFormatted.replace(",", "X").replace(".", ",").replace("X", ".");
     }
 }

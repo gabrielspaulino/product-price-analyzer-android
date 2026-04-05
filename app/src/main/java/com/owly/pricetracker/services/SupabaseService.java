@@ -379,6 +379,37 @@ public class SupabaseService {
         return null;
     }
 
+
+    // ─── Product Search (for autocomplete) ───────────────────────────────────
+
+    /**
+     * Searches products by name prefix for autocomplete suggestions.
+     * Queries the public.products table with ilike filter.
+     * Returns up to 8 matches ordered by name.
+     */
+    public List<String> searchProductNames(String token, String query) throws IOException {
+        if (query == null || query.trim().isEmpty()) return new ArrayList<>();
+        String encoded = URLEncoder.encode(query.trim() + "%", StandardCharsets.UTF_8.toString());
+        String url = baseUrl + "/rest/v1/products"
+                + "?select=name"
+                + "&normalized_name=ilike." + encoded.toLowerCase()
+                + "&order=name.asc"
+                + "&limit=8";
+
+        try (Response r = http.newCall(authGet(token, url)).execute()) {
+            String rb = r.body().string();
+            List<String> names = new ArrayList<>();
+            if (!r.isSuccessful()) return names;
+            for (JsonElement el : JsonParser.parseString(rb).getAsJsonArray()) {
+                JsonObject o = el.getAsJsonObject();
+                if (o.has("name") && !o.get("name").isJsonNull()) {
+                    names.add(o.get("name").getAsString());
+                }
+            }
+            return names;
+        }
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Request authGet(String token, String url) {

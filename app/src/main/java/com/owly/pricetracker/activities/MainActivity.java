@@ -11,10 +11,11 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.textfield.TextInputEditText;
@@ -26,6 +27,7 @@ import com.owly.pricetracker.models.User;
 import com.owly.pricetracker.services.SerperApiService;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.LogoLoader;
+import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
 import com.owly.pricetracker.utils.SessionManager;
 
 import java.util.ArrayList;
@@ -49,7 +51,7 @@ public class MainActivity extends AppCompatActivity
     private boolean settingsExpanded = true;
 
     // Add product
-    private TextInputEditText etProductName;
+    private AutoCompleteTextView etProductName;
     private Button btnAddProduct, btnAnalyzeAll;
 
     // List
@@ -120,6 +122,42 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void setupAddProduct() {
+        // ArrayAdapter for autocomplete suggestions from Supabase
+        ArrayAdapter<String> autocompleteAdapter = new ArrayAdapter<>(
+                this, android.R.layout.simple_dropdown_item_1line, new java.util.ArrayList<>());
+        etProductName.setAdapter(autocompleteAdapter);
+        etProductName.setThreshold(2); // start suggesting after 2 chars
+
+        // Fetch suggestions from Supabase as user types
+        etProductName.addTextChangedListener(new android.text.TextWatcher() {
+            private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+            private Runnable runnable;
+
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                if (runnable != null) handler.removeCallbacks(runnable);
+            }
+
+            @Override public void afterTextChanged(android.text.Editable s) {
+                String query = s != null ? s.toString().trim() : "";
+                if (query.length() < 2) return;
+
+                // Debounce: wait 300ms after user stops typing before fetching
+                runnable = () -> executor.execute(() -> {
+                    try {
+                        java.util.List<String> suggestions = SupabaseService.getInstance()
+                                .searchProductNames(currentUser.getAccessToken(), query);
+                        runOnUiThread(() -> {
+                            autocompleteAdapter.clear();
+                            autocompleteAdapter.addAll(suggestions);
+                            autocompleteAdapter.notifyDataSetChanged();
+                        });
+                    } catch (Exception ignored) {}
+                });
+                handler.postDelayed(runnable, 300);
+            }
+        });
+
         btnAddProduct.setOnClickListener(v -> {
             String name = etProductName.getText() != null
                     ? etProductName.getText().toString().trim() : "";
@@ -128,20 +166,28 @@ public class MainActivity extends AppCompatActivity
                 return;
             }
             etProductName.setText("");
+            etProductName.dismissDropDown();
             addProduct(name, null);
         });
+
         etProductName.setOnEditorActionListener((v, actionId, event) -> {
             btnAddProduct.performClick();
             return true;
         });
+
         btnAnalyzeAll.setOnClickListener(v -> analyzeAll());
     }
 
     private void setupRecycler() {
         adapter = new ProductAdapter(products, this);
-        recyclerProducts.setLayoutManager(new LinearLayoutManager(this));
+        // Override canScrollVertically so LinearLayoutManager measures ALL items,
+        // not just those fitting the screen. Required when inside a ScrollView.
+        recyclerProducts.setLayoutManager(new NonScrollableLinearLayoutManager(this));
         recyclerProducts.setAdapter(adapter);
+        // nestedScrollingEnabled=false is required — lets NestedScrollView handle
+        // scrolling and forces RecyclerView to measure and render ALL items at once
         recyclerProducts.setNestedScrollingEnabled(false);
+        recyclerProducts.setHasFixedSize(false);
 
         swipeRefresh.setColorSchemeResources(R.color.accent_primary_fallback);
         swipeRefresh.setOnRefreshListener(this::loadProducts);
