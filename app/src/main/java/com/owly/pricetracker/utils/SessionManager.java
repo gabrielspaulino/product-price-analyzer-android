@@ -59,7 +59,9 @@ public class SessionManager {
     }
 
     public boolean isLoggedIn() {
-        return prefs.getString(KEY_ID, null) != null;
+        return prefs.getString(KEY_ID, null) != null
+                && prefs.getString(KEY_REFRESH_TOKEN, null) != null
+                && prefs.getString(KEY_ACCESS_TOKEN, null) != null;
     }
 
     public void saveSerperKey(String key) {
