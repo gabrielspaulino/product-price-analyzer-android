@@ -69,6 +69,11 @@ public class ProductAnalysisManager {
     }
 
     private void notifyIfNewSale(Product product, PriceSnapshot snapshot) {
+        Double targetPrice = product.getTargetPrice();
+        if (targetPrice != null && snapshot.getPrice() > targetPrice) {
+            return;
+        }
+
         String snapshotKey = snapshot.getTweetUrl() != null
                 ? snapshot.getTweetUrl()
                 : snapshot.getCapturedAt();
