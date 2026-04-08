@@ -324,7 +324,6 @@ public class MainActivity extends AppCompatActivity
                     recyclerProducts.scrollToPosition(0);
                     updateEmptyState();
                     toast("\"" + name + "\" adicionado!");
-                    if (SerperApiService.getInstance().hasApiKey()) analyze(product);
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
