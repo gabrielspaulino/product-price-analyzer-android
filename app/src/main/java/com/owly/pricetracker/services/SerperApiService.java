@@ -30,6 +30,32 @@ public class SerperApiService {
     private static final MediaType JSON = MediaType.get("application/json; charset=utf-8");
     private static final String OPENAI_URL = "https://api.openai.com/v1/chat/completions";
     private static final String OPENAI_MODEL = "gpt-5-nano";
+    private static final String OPENAI_DEAL_VALIDATION_PROMPT_TEMPLATE =
+            "You are an AI that evaluates whether a text describes a real deal for a specific product.\n" +
+            "\n" +
+            "Your task:\n" +
+            "Return true if the text is a valid deal for the searched product.\n" +
+            "Return false otherwise.\n" +
+            "\n" +
+            "Strict Rules:\n" +
+            "- The text must clearly offer the product for sale (price, discount, payment method, or store).\n" +
+            "- The product must match the searched product EXACTLY.\n" +
+            "- Accessories, parts, or related items are NOT valid.\n" +
+            "  Example: A controller is NOT a PlayStation 5.\n" +
+            "- Mentions in news, opinions, speculation, or announcements are NOT valid.\n" +
+            "- If the product is only mentioned but not being sold, return FALSE.\n" +
+            "- Bundles are valid ONLY if the main product is the searched product.\n" +
+            "- Be strict: if there is any doubt, return FALSE.\n" +
+            "\n" +
+            "Output Rules:\n" +
+            "- Return ONLY: TRUE or FALSE\n" +
+            "- No explanation, no extra text.\n" +
+            "\n" +
+            "Searched product:\n" +
+            "\"%s\"\n" +
+            "\n" +
+            "Text:\n" +
+            "\"%s\"";
     private static final String OPENAI_PROMPT_TEMPLATE = "You are an information extraction system. Your task is to identify and extract the price from the text of a product deal post from X (Twitter).\n" +
             "\n" +
             "Rules and constraints:\n" +
@@ -115,6 +141,15 @@ public class SerperApiService {
             String snippet = item.has("snippet") ? item.get("snippet").getAsString() : "";
             String title   = item.has("title")   ? item.get("title").getAsString()   : "";
             String combined = (title + " " + snippet).trim();
+            boolean isValidDeal;
+            try {
+                isValidDeal = isValidProductDeal(productName, combined);
+            } catch (IOException e) {
+                Log.e(TAG, "OpenAI deal validation failed", e);
+                continue;
+            }
+            if (!isValidDeal) continue;
+
             Double price;
             try {
                 price = fetchPriceFromOpenAi(combined);
@@ -156,6 +191,25 @@ public class SerperApiService {
     private Double fetchPriceFromOpenAi(String text) throws IOException {
         if (text == null || text.isBlank()) return null;
         String prompt = String.format(Locale.US, OPENAI_PROMPT_TEMPLATE, text.trim());
+        String content = fetchOpenAiContent(prompt);
+        return content != null ? Double.parseDouble(content) : null;
+    }
+
+    private boolean isValidProductDeal(String productName, String postText) throws IOException {
+        if (productName == null || productName.isBlank() || postText == null || postText.isBlank()) {
+            return false;
+        }
+        String prompt = String.format(
+                Locale.US,
+                OPENAI_DEAL_VALIDATION_PROMPT_TEMPLATE,
+                productName.trim(),
+                postText.trim()
+        );
+        String content = fetchOpenAiContent(prompt);
+        return content != null && "TRUE".equalsIgnoreCase(content.trim());
+    }
+
+    private String fetchOpenAiContent(String prompt) throws IOException {
         JsonObject payload = new JsonObject();
         payload.addProperty("model", OPENAI_MODEL);
         JsonArray messages = new JsonArray();
@@ -182,9 +236,8 @@ public class SerperApiService {
             if (choices == null || choices.size() == 0) return null;
             JsonObject first = choices.get(0).getAsJsonObject();
             JsonObject messageObj = first.has("message") ? first.getAsJsonObject("message") : null;
-            String content = messageObj != null && messageObj.has("content")
+            return messageObj != null && messageObj.has("content")
                     ? messageObj.get("content").getAsString() : null;
-            return content != null ? Double.parseDouble(content) : null;
         }
     }
 
