@@ -1,12 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="page_padding">16dp</dimen>
-    <dimen name="card_padding">20dp</dimen>
-    <dimen name="card_margin_v">8dp</dimen>
+    <dimen name="page_padding">20dp</dimen>
+    <dimen name="card_padding">18dp</dimen>
     <dimen name="card_radius">16dp</dimen>
-    <dimen name="input_radius">10dp</dimen>
-    <dimen name="btn_radius">10dp</dimen>
-    <dimen name="section_spacing">16dp</dimen>
-    <dimen name="header_height">60dp</dimen>
-    <dimen name="avatar_size">38dp</dimen>
+    <dimen name="card_margin_v">12dp</dimen>
+    <dimen name="sort_button_stroke_width">1dp</dimen>
 </resources>

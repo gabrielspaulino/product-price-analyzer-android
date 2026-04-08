@@ -85,8 +85,7 @@ public class SerperApiService {
     private static final String OPENAI_DATE_PARSER_PROMPT_TEMPLATE =
             "You are a date parser.\n" +
             "\n" +
-            "Convert the given human-readable date/time expression into an ISO 8601 UTC timestamp in the format:\n" +
-            "YYYY-MM-DDTHH:MM:SSZ\n" +
+            "Convert the given human-readable date/time expression into an ISO 8601 value.\n" +
             "\n" +
             "Rules:\n" +
             "1. The input may be in English or Portuguese.\n" +
@@ -101,9 +100,9 @@ public class SerperApiService {
             "ABSOLUTE DATES:\n" +
             "- Examples: \"Mar 25, 2026\", \"30 de mar. de 2026\"\n" +
             "- Convert to YYYY-MM-DD.\n" +
-            "- If no time is provided:\n" +
-            "  - Default to 00:00:00Z\n" +
-            "- If the format implies \"today\" (like localized formats without time), you may keep the reference time.\n" +
+            "- If no time is provided, preserve the calendar date and return it as:\n" +
+            "  YYYY-MM-DDT12:00:00Z\n" +
+            "- This noon UTC default is required so timezone conversions do not move the value to the previous day.\n" +
             "\n" +
             "LANGUAGE HANDLING:\n" +
             "- English and Portuguese month names and abbreviations must be supported.\n" +
@@ -121,7 +120,7 @@ public class SerperApiService {
             "%s\n" +
             "\n" +
             "OUTPUT:\n" +
-            "Return ONLY the ISO 8601 UTC timestamp. No explanation.";
+            "Return ONLY the ISO 8601 value. No explanation.";
     private final String openAiApiKey;
     private String apiKey;
     private final OkHttpClient http;

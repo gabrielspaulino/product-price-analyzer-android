@@ -90,19 +90,19 @@ public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
 
         private String formatTweetDate(String isoUtc) {
             try {
+                if (isDateOnlySentinel(isoUtc)) {
+                    return isoUtc.substring(8, 10) + "/" + isoUtc.substring(5, 7) + "/" + isoUtc.substring(0, 4);
+                }
                 ZonedDateTime dateTime = parseIsoDate(isoUtc).withZoneSameInstant(ZoneId.systemDefault());
-                boolean hasOnlyDate = dateTime.getHour() == 0
-                        && dateTime.getMinute() == 0
-                        && dateTime.getSecond() == 0
-                        && dateTime.getNano() == 0;
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(
-                        hasOnlyDate ? "dd/MM/yyyy" : "dd/MM/yyyy 'às' HH:mm",
-                        Locale.getDefault()
-                );
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy", Locale.getDefault());
                 return dateTime.format(formatter);
             } catch (Exception ignored) {
                 return isoUtc;
             }
+        }
+
+        private boolean isDateOnlySentinel(String value) {
+            return value != null && value.matches("\\d{4}-\\d{2}-\\d{2}T12:00:00Z");
         }
 
         private ZonedDateTime parseIsoDate(String value) {

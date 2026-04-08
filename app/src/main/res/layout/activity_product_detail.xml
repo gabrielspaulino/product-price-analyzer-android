@@ -252,6 +252,31 @@
                         android:textStyle="bold"
                         android:layout_marginBottom="12dp"/>
 
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="12dp"
+                        android:gravity="start"
+                        android:orientation="horizontal">
+
+                        <Button
+                            android:id="@+id/btn_sort_date"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginEnd="8dp"
+                            android:minWidth="0dp"
+                            android:text="Mais recentes"
+                            style="@style/OwlyButton.Outline"/>
+
+                        <Button
+                            android:id="@+id/btn_sort_price"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:minWidth="0dp"
+                            android:text="Menor preço"
+                            style="@style/OwlyButton.Outline"/>
+                    </LinearLayout>
+
                     <ProgressBar
                         android:id="@+id/progress_history"
                         android:layout_width="wrap_content"

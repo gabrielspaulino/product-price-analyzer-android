@@ -73,6 +73,19 @@
         <item name="android:minHeight">48dp</item>
     </style>
 
+    <style name="OwlyExposedDropdown" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu">
+        <item name="boxCornerRadiusTopStart">10dp</item>
+        <item name="boxCornerRadiusTopEnd">10dp</item>
+        <item name="boxCornerRadiusBottomStart">10dp</item>
+        <item name="boxCornerRadiusBottomEnd">10dp</item>
+        <item name="boxStrokeColor">@color/input_stroke</item>
+        <item name="boxBackgroundColor">@color/input_bg</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="hintTextColor">@color/text_hint</item>
+        <item name="android:textColorHint">@color/text_hint</item>
+        <item name="endIconTint">@color/text_secondary</item>
+    </style>
+
     <!-- Dialog -->
     <style name="OwlyDialog" parent="Theme.MaterialComponents.Light.Dialog.Alert">
         <item name="colorPrimary">@color/accent_primary</item>

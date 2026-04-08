@@ -3,7 +3,6 @@ package com.owly.pricetracker.activities;
 import android.content.Intent;
 import android.os.Bundle;
 import android.view.View;
-import android.widget.Button;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -13,6 +12,7 @@ import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 
+import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.owly.pricetracker.R;
 import com.owly.pricetracker.adapters.SnapshotAdapter;
@@ -25,6 +25,7 @@ import com.owly.pricetracker.utils.SessionManager;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
@@ -33,19 +34,24 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class ProductDetailActivity extends AppCompatActivity {
+    private enum SortMode {
+        DATE,
+        LOWEST_PRICE
+    }
 
     private String productId, productName, watchId, lastUpdated;
     private double currentPrice, targetPrice;
 
     private TextView tvProductName, tvCurrentPrice, tvLastUpdated,
             tvStatusBadge, tvTargetCurrent;
-    private Button btnAnalyze, btnSaveTarget, btnClearTarget;
+    private MaterialButton btnAnalyze, btnSaveTarget, btnClearTarget, btnSortDate, btnSortPrice;
     private TextInputEditText etTargetPrice;
     private ProgressBar progressAnalyze, progressHistory;
     private LinearLayout layoutEmptyHistory;
     private RecyclerView recyclerHistory;
     private SnapshotAdapter snapshotAdapter;
     private final List<PriceSnapshot> snapshots = new ArrayList<>();
+    private SortMode sortMode = SortMode.DATE;
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private User currentUser;
@@ -81,6 +87,8 @@ public class ProductDetailActivity extends AppCompatActivity {
         btnAnalyze       = findViewById(R.id.btn_analyze);
         btnSaveTarget    = findViewById(R.id.btn_save_target);
         btnClearTarget   = findViewById(R.id.btn_clear_target);
+        btnSortDate      = findViewById(R.id.btn_sort_date);
+        btnSortPrice     = findViewById(R.id.btn_sort_price);
         etTargetPrice    = findViewById(R.id.et_target_price);
         progressAnalyze  = findViewById(R.id.progress_analyze);
         progressHistory  = findViewById(R.id.progress_history);
@@ -100,6 +108,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         btnAnalyze.setOnClickListener(v -> analyzeNow());
         btnSaveTarget.setOnClickListener(v -> saveTarget());
         btnClearTarget.setOnClickListener(v -> clearTarget());
+        setupSortSelector();
     }
 
     private void populateHeader() {
@@ -134,9 +143,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                         .getSnapshots(currentUser.getAccessToken(), productId);
                 runOnUiThread(() -> {
                     progressHistory.setVisibility(View.GONE);
-                    snapshots.clear();
-                    snapshots.addAll(loaded);
-                    snapshotAdapter.notifyDataSetChanged();
+                    setSnapshots(loaded);
                     layoutEmptyHistory.setVisibility(snapshots.isEmpty() ? View.VISIBLE : View.GONE);
                 });
             } catch (Exception e) {
@@ -190,9 +197,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                         tvLastUpdated.setText("Atualizado: agora");
                         tvLastUpdated.setVisibility(View.VISIBLE);
                     }
-                    snapshots.clear();
-                    snapshots.addAll(refreshed);
-                    snapshotAdapter.notifyDataSetChanged();
+                    setSnapshots(refreshed);
                     layoutEmptyHistory.setVisibility(snapshots.isEmpty() ? View.VISIBLE : View.GONE);
                     toast("Análise concluída!");
                 });
@@ -257,6 +262,82 @@ public class ProductDetailActivity extends AppCompatActivity {
         data.putExtra("watch_id", watchId);
         data.putExtra("target_price", targetPrice);
         setResult(RESULT_OK, data);
+    }
+
+    private void setSortMode(SortMode newMode) {
+        if (sortMode == newMode) return;
+        sortMode = newMode;
+        sortSnapshots();
+        snapshotAdapter.notifyDataSetChanged();
+        updateSortSelector();
+    }
+
+    private void setSnapshots(List<PriceSnapshot> loaded) {
+        snapshots.clear();
+        snapshots.addAll(loaded);
+        sortSnapshots();
+        snapshotAdapter.notifyDataSetChanged();
+        updateSortSelector();
+    }
+
+    private void sortSnapshots() {
+        if (sortMode == SortMode.LOWEST_PRICE) {
+            snapshots.sort(Comparator.comparingDouble(PriceSnapshot::getPrice));
+            return;
+        }
+
+        snapshots.sort((left, right) -> compareDatesDesc(left.getTweetDate(), right.getTweetDate()));
+    }
+
+    private int compareDatesDesc(String left, String right) {
+        long leftValue = parseSortableDate(left);
+        long rightValue = parseSortableDate(right);
+        return Long.compare(rightValue, leftValue);
+    }
+
+    private long parseSortableDate(String value) {
+        if (value == null || value.isEmpty()) return Long.MIN_VALUE;
+        try {
+            return java.time.OffsetDateTime.parse(value).toInstant().toEpochMilli();
+        } catch (Exception ignored) {
+            try {
+                return java.time.Instant.parse(value).toEpochMilli();
+            } catch (Exception ignoredAgain) {
+                return Long.MIN_VALUE;
+            }
+        }
+    }
+
+    private void setupSortSelector() {
+        btnSortDate.setOnClickListener(v -> setSortMode(SortMode.DATE));
+        btnSortPrice.setOnClickListener(v -> setSortMode(SortMode.LOWEST_PRICE));
+        updateSortSelector();
+    }
+
+    private void updateSortSelector() {
+        boolean byDate = sortMode == SortMode.DATE;
+        styleSortButton(btnSortDate, byDate);
+        styleSortButton(btnSortPrice, !byDate);
+    }
+
+    private void styleSortButton(MaterialButton button, boolean selected) {
+        if (selected) {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(this, R.color.accent_primary)
+            ));
+            button.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.accent_primary_text));
+            button.setStrokeWidth(0);
+        } else {
+            button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(this, android.R.color.transparent)
+            ));
+            button.setTextColor(androidx.core.content.ContextCompat.getColor(this, R.color.btn_outline_text));
+            button.setStrokeWidth(getResources().getDimensionPixelSize(R.dimen.sort_button_stroke_width));
+            button.setStrokeColor(android.content.res.ColorStateList.valueOf(
+                    androidx.core.content.ContextCompat.getColor(this, R.color.btn_outline_stroke)
+            ));
+        }
+        button.setEnabled(true);
     }
 
     private String formatDate(String iso) {
