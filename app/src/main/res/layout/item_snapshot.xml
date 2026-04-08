@@ -32,7 +32,16 @@
             android:layout_height="wrap_content"
             android:textColor="@color/text_secondary"
             android:textSize="13sp"
-            android:layout_marginBottom="8dp"/>
+            android:layout_marginBottom="4dp"/>
+
+        <TextView
+            android:id="@+id/tv_date"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp"
+            android:visibility="gone"/>
 
         <TextView
             android:id="@+id/tv_excerpt"

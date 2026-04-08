@@ -12,6 +12,7 @@ import com.owly.pricetracker.models.PriceSnapshot;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -81,6 +82,46 @@ public class SerperApiService {
             "Input: \"Mega oferta: R$ 2.340,99!!!\" → Output: 2340.99\n" +
             "\n" +
             "Now extract the price from the following text:\n%s";
+    private static final String OPENAI_DATE_PARSER_PROMPT_TEMPLATE =
+            "You are a date parser.\n" +
+            "\n" +
+            "Convert the given human-readable date/time expression into an ISO 8601 UTC timestamp in the format:\n" +
+            "YYYY-MM-DDTHH:MM:SSZ\n" +
+            "\n" +
+            "Rules:\n" +
+            "1. The input may be in English or Portuguese.\n" +
+            "2. Handle both absolute and relative dates.\n" +
+            "\n" +
+            "RELATIVE DATES:\n" +
+            "- Examples: \"7 hours ago\", \"há 4 dias\", \"2 days ago\"\n" +
+            "- Use the provided reference datetime as \"now\".\n" +
+            "- Subtract the specified amount of time.\n" +
+            "- Preserve hours and minutes from the reference datetime unless explicitly overridden.\n" +
+            "\n" +
+            "ABSOLUTE DATES:\n" +
+            "- Examples: \"Mar 25, 2026\", \"30 de mar. de 2026\"\n" +
+            "- Convert to YYYY-MM-DD.\n" +
+            "- If no time is provided:\n" +
+            "  - Default to 00:00:00Z\n" +
+            "- If the format implies \"today\" (like localized formats without time), you may keep the reference time.\n" +
+            "\n" +
+            "LANGUAGE HANDLING:\n" +
+            "- English and Portuguese month names and abbreviations must be supported.\n" +
+            "  Examples:\n" +
+            "  - \"Mar\", \"March\", \"mar.\", \"março\"\n" +
+            "- Portuguese relative terms:\n" +
+            "  - \"há\" = \"ago\"\n" +
+            "  - \"dias\" = \"days\"\n" +
+            "  - \"horas\" = \"hours\"\n" +
+            "\n" +
+            "REFERENCE DATETIME:\n" +
+            "%s\n" +
+            "\n" +
+            "INPUT:\n" +
+            "%s\n" +
+            "\n" +
+            "OUTPUT:\n" +
+            "Return ONLY the ISO 8601 UTC timestamp. No explanation.";
     private final String openAiApiKey;
     private String apiKey;
     private final OkHttpClient http;
@@ -159,12 +200,24 @@ public class SerperApiService {
             if (price == null) continue;
 
             String sourceAccount = extractTwitterHandle(link);
+            String rawDate = item.has("date") && !item.get("date").isJsonNull()
+                    ? item.get("date").getAsString().trim()
+                    : null;
+            String normalizedTweetDate = null;
+            if (!StringUtils.isBlank(rawDate)) {
+                try {
+                    normalizedTweetDate = fetchTweetDateFromOpenAi(rawDate);
+                } catch (IOException e) {
+                    Log.e(TAG, "OpenAI date parsing failed", e);
+                }
+            }
 
             PriceSnapshot s = new PriceSnapshot();
             s.setPrice(price);
             s.setSourceAccount(sourceAccount);
             s.setTweetExcerpt(snippet.length() > 280 ? snippet.substring(0, 280) + "…" : snippet);
             s.setTweetUrl(link);
+            s.setTweetDate(normalizedTweetDate);
             results.add(s);
         }
 
@@ -206,6 +259,18 @@ public class SerperApiService {
         );
         String content = fetchOpenAiContent(prompt);
         return content != null && "TRUE".equalsIgnoreCase(content.trim());
+    }
+
+    private String fetchTweetDateFromOpenAi(String dateText) throws IOException {
+        if (dateText == null || dateText.isBlank()) return null;
+        String prompt = String.format(
+                Locale.US,
+                OPENAI_DATE_PARSER_PROMPT_TEMPLATE,
+                Instant.now().toString(),
+                dateText.trim()
+        );
+        String content = fetchOpenAiContent(prompt);
+        return content != null ? content.trim() : null;
     }
 
     private String fetchOpenAiContent(String prompt) throws IOException {

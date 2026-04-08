@@ -7,6 +7,7 @@ public class PriceSnapshot {
     private String sourceAccount;
     private String tweetExcerpt;
     private String tweetUrl;
+    private String tweetDate;
     private String capturedAt;
 
     public PriceSnapshot() {}
@@ -35,6 +36,9 @@ public class PriceSnapshot {
 
     public String getTweetUrl() { return tweetUrl; }
     public void setTweetUrl(String tweetUrl) { this.tweetUrl = tweetUrl; }
+
+    public String getTweetDate() { return tweetDate; }
+    public void setTweetDate(String tweetDate) { this.tweetDate = tweetDate; }
 
     public String getCapturedAt() { return capturedAt; }
     public void setCapturedAt(String capturedAt) { this.capturedAt = capturedAt; }

@@ -282,6 +282,7 @@ public class SupabaseService {
         if (snap.getSourceAccount() != null) body.addProperty("source_account", snap.getSourceAccount());
         if (snap.getTweetExcerpt() != null)  body.addProperty("tweet_excerpt", snap.getTweetExcerpt());
         if (snap.getTweetUrl() != null)      body.addProperty("tweet_url", snap.getTweetUrl());
+        if (snap.getTweetDate() != null)     body.addProperty("tweet_date", snap.getTweetDate());
 
         Request req = new Request.Builder()
                 .url(baseUrl + "/rest/v1/price_snapshots")
@@ -329,6 +330,8 @@ public class SupabaseService {
             s.setTweetExcerpt(o.get("tweet_excerpt").getAsString());
         if (o.has("tweet_url") && !o.get("tweet_url").isJsonNull())
             s.setTweetUrl(o.get("tweet_url").getAsString());
+        if (o.has("tweet_date") && !o.get("tweet_date").isJsonNull())
+            s.setTweetDate(o.get("tweet_date").getAsString());
         if (o.has("captured_at") && !o.get("captured_at").isJsonNull())
             s.setCapturedAt(o.get("captured_at").getAsString());
         return s;

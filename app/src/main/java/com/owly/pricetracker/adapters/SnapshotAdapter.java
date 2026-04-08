@@ -14,11 +14,13 @@ import com.owly.pricetracker.R;
 import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.services.SerperApiService;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
-import java.util.TimeZone;
 
 public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
 
@@ -37,12 +39,13 @@ public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
     @Override public int getItemCount() { return items.size(); }
 
     static class VH extends RecyclerView.ViewHolder {
-        TextView tvPrice, tvSource, tvExcerpt, tvLink;
+        TextView tvPrice, tvSource, tvDate, tvExcerpt, tvLink;
 
         VH(View v) {
             super(v);
             tvPrice   = v.findViewById(R.id.tv_price);
             tvSource  = v.findViewById(R.id.tv_source);
+            tvDate    = v.findViewById(R.id.tv_date);
             tvExcerpt = v.findViewById(R.id.tv_excerpt);
             tvLink    = v.findViewById(R.id.tv_link);
         }
@@ -54,6 +57,14 @@ public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
             // Source account
             String src = s.getSourceAccount();
             tvSource.setText(src != null && !src.isEmpty() ? src : "@xetdaspromocoes");
+
+            String tweetDate = s.getTweetDate();
+            if (tweetDate != null && !tweetDate.isEmpty()) {
+                tvDate.setText(formatTweetDate(tweetDate));
+                tvDate.setVisibility(View.VISIBLE);
+            } else {
+                tvDate.setVisibility(View.GONE);
+            }
 
             // Excerpt — always show if present (this was the main visibility bug)
             String excerpt = s.getTweetExcerpt();
@@ -74,6 +85,31 @@ public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
                                 new Intent(Intent.ACTION_VIEW, Uri.parse(link))));
             } else {
                 tvLink.setVisibility(View.GONE);
+            }
+        }
+
+        private String formatTweetDate(String isoUtc) {
+            try {
+                ZonedDateTime dateTime = parseIsoDate(isoUtc).withZoneSameInstant(ZoneId.systemDefault());
+                boolean hasOnlyDate = dateTime.getHour() == 0
+                        && dateTime.getMinute() == 0
+                        && dateTime.getSecond() == 0
+                        && dateTime.getNano() == 0;
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern(
+                        hasOnlyDate ? "dd/MM/yyyy" : "dd/MM/yyyy 'às' HH:mm",
+                        Locale.getDefault()
+                );
+                return dateTime.format(formatter);
+            } catch (Exception ignored) {
+                return isoUtc;
+            }
+        }
+
+        private ZonedDateTime parseIsoDate(String value) {
+            try {
+                return OffsetDateTime.parse(value).toZonedDateTime();
+            } catch (Exception ignored) {
+                return Instant.parse(value).atZone(ZoneId.of("UTC"));
             }
         }
     }
