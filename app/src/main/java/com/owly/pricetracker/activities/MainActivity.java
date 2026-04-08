@@ -35,7 +35,6 @@ import com.owly.pricetracker.utils.NotificationHelper;
 import com.owly.pricetracker.utils.NotificationPrefs;
 import com.owly.pricetracker.utils.ProductAnalysisManager;
 import com.owly.pricetracker.utils.SessionManager;
-import com.owly.pricetracker.work.ProductAnalysisScheduler;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
@@ -95,7 +94,6 @@ public class MainActivity extends AppCompatActivity
         initSerperKey();
         initNotificationSupport();
         analysisManager = new ProductAnalysisManager(this, currentUser);
-        ProductAnalysisScheduler.schedule(this);
         loadProducts();
     }
 

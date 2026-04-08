@@ -27,7 +27,7 @@ public class ProductAnalysisWorker extends Worker {
     public Result doWork() {
         Context context = getApplicationContext();
         SessionManager session = SessionManager.getInstance(context);
-        User currentUser = session.getUser();
+        User currentUser = getRefreshedUser(session);
         if (currentUser == null) return Result.success();
 
         String serperKey = session.getSerperKey();
@@ -46,6 +46,33 @@ public class ProductAnalysisWorker extends Worker {
             return Result.success();
         } catch (Exception e) {
             return Result.retry();
+        }
+    }
+
+    private User getRefreshedUser(SessionManager session) {
+        User savedUser = session.getUser();
+        if (savedUser == null) return null;
+
+        String refreshToken = savedUser.getRefreshToken();
+        if (refreshToken == null || refreshToken.isEmpty()) {
+            return savedUser;
+        }
+
+        try {
+            User refreshedUser = SupabaseService.getInstance().refreshToken(refreshToken);
+            if (refreshedUser.getId() == null) {
+                refreshedUser.setId(savedUser.getId());
+            }
+            if (refreshedUser.getEmail() == null) {
+                refreshedUser.setEmail(savedUser.getEmail());
+            }
+            if (refreshedUser.getRefreshToken() == null || refreshedUser.getRefreshToken().isEmpty()) {
+                refreshedUser.setRefreshToken(savedUser.getRefreshToken());
+            }
+            session.saveUser(refreshedUser);
+            return refreshedUser;
+        } catch (Exception ignored) {
+            return savedUser;
         }
     }
 }
