@@ -85,4 +85,29 @@ public class NotificationHelper {
                 product.getId() != null ? product.getId().hashCode() : (int) System.currentTimeMillis(),
                 builder.build());
     }
+
+    public static void sendRemoteSaleNotification(
+            Context context,
+            String productId,
+            String productName,
+            String watchId,
+            double price,
+            double targetPrice,
+            String lastUpdated,
+            String sourceAccount
+    ) {
+        Product product = new Product();
+        product.setId(productId);
+        product.setName(productName);
+        product.setWatchId(watchId);
+        product.setCurrentPrice(price > 0 ? price : null);
+        product.setTargetPrice(targetPrice > 0 ? targetPrice : null);
+        product.setLastUpdated(lastUpdated);
+
+        PriceSnapshot snapshot = new PriceSnapshot();
+        snapshot.setPrice(price > 0 ? price : 0);
+        snapshot.setSourceAccount(sourceAccount);
+
+        sendSaleNotification(context, product, snapshot);
+    }
 }

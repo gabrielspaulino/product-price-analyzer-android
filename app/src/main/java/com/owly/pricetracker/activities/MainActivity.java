@@ -34,6 +34,7 @@ import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
 import com.owly.pricetracker.utils.NotificationHelper;
 import com.owly.pricetracker.utils.NotificationPrefs;
 import com.owly.pricetracker.utils.ProductAnalysisManager;
+import com.owly.pricetracker.utils.PushTokenManager;
 import com.owly.pricetracker.utils.SessionManager;
 import java.util.ArrayList;
 import java.util.List;
@@ -475,6 +476,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void logout() {
+        PushTokenManager.unregisterCurrentToken(currentUser);
         session.clearSession();
         goToAuth();
     }

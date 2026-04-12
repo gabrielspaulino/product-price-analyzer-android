@@ -10,6 +10,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.owly.pricetracker.models.User;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.LogoLoader;
+import com.owly.pricetracker.utils.PushTokenManager;
 import com.owly.pricetracker.utils.SessionManager;
 
 import java.util.concurrent.ExecutorService;
@@ -47,6 +48,7 @@ public class SplashActivity extends AppCompatActivity {
                 User refreshedUser = SupabaseService.getInstance().refreshToken(refreshToken);
                 User mergedUser = mergeUser(savedUser, refreshedUser);
                 session.saveUser(mergedUser);
+                PushTokenManager.syncToken(this, mergedUser);
                 runOnUiThread(this::goToMain);
             } catch (Exception e) {
                 session.clearSession();

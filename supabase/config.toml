@@ -1,0 +1,4 @@
+project_id = "my-project-id"
+
+[functions.analyze-watched-products]
+verify_jwt = false

@@ -15,6 +15,7 @@ import com.owly.pricetracker.R;
 import com.owly.pricetracker.utils.LogoLoader;
 import com.owly.pricetracker.models.User;
 import com.owly.pricetracker.services.SupabaseService;
+import com.owly.pricetracker.utils.PushTokenManager;
 import com.owly.pricetracker.utils.SessionManager;
 
 import java.util.concurrent.ExecutorService;
@@ -93,6 +94,7 @@ public class AuthActivity extends AppCompatActivity {
                         ? SupabaseService.getInstance().signIn(email, password)
                         : SupabaseService.getInstance().signUp(email, password);
                 SessionManager.getInstance(this).saveUser(user);
+                PushTokenManager.syncToken(this, user);
                 runOnUiThread(() -> {
                     startActivity(new Intent(this, MainActivity.class));
                     finish();

@@ -2,6 +2,19 @@ plugins {
     id 'com.android.application'
 }
 
+def googleServicesConfigCandidates = [
+        file("google-services.json"),
+        file("src/debug/google-services.json"),
+        file("src/Debug/google-services.json"),
+        file("src/main/google-services.json"),
+        file("src/google-services.json")
+]
+def hasGoogleServicesConfig = googleServicesConfigCandidates.any { it.exists() }
+
+if (hasGoogleServicesConfig) {
+    apply plugin: 'com.google.gms.google-services'
+}
+
 android {
     namespace 'com.owly.pricetracker'
     compileSdk 34
@@ -25,6 +38,7 @@ android {
         buildConfigField "String", "SUPABASE_URL", "\"${localProperties.getProperty('SUPABASE_URL', '')}\""
         buildConfigField "String", "SUPABASE_ANON_KEY", "\"${localProperties.getProperty('SUPABASE_ANON_KEY', '')}\""
         buildConfigField "String", "OPENAI_API_KEY", "\"${localProperties.getProperty('OPENAI_API_KEY', '')}\""
+        buildConfigField "boolean", "FIREBASE_ENABLED", "${hasGoogleServicesConfig}"
     }
 
     buildTypes {
@@ -59,6 +73,8 @@ dependencies {
 
     // Material Design 3
     implementation 'com.google.android.material:material:1.11.0'
+    implementation platform('com.google.firebase:firebase-bom:34.7.0')
+    implementation 'com.google.firebase:firebase-messaging'
 
     // HTTP
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'

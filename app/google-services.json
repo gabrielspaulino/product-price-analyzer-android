@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "947019407251",
+    "project_id": "product-price-analyzer",
+    "storage_bucket": "product-price-analyzer.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:947019407251:android:c96e8446d084c9c1b55266",
+        "android_client_info": {
+          "package_name": "com.owly.pricetracker"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDw_3qYgoHCaBZhVLedGn_BV5mDho9-InA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

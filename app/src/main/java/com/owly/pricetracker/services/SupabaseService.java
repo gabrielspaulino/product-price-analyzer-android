@@ -395,6 +395,39 @@ public class SupabaseService {
         return null;
     }
 
+    public void registerDeviceToken(String token, String deviceToken) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_token", deviceToken);
+        body.addProperty("p_platform", "android");
+
+        Request req = new Request.Builder()
+                .url(baseUrl + "/rest/v1/rpc/register_device_token")
+                .post(body(body))
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) throw new IOException("Erro ao registrar push token");
+        }
+    }
+
+    public void deleteDeviceToken(String token, String deviceToken) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("p_token", deviceToken);
+
+        Request req = new Request.Builder()
+                .url(baseUrl + "/rest/v1/rpc/delete_device_token")
+                .post(body(body))
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Content-Type", "application/json")
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) throw new IOException("Erro ao remover push token");
+        }
+    }
+
 
     // ─── Product Search (for autocomplete) ───────────────────────────────────
 
