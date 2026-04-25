@@ -46,6 +46,10 @@
             android:exported="false"
             android:parentActivityName=".activities.MainActivity"/>
 
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_channel_id"
+            android:value="owly_sales" />
+
         <service
             android:name=".services.OwlyFirebaseMessagingService"
             android:exported="false">

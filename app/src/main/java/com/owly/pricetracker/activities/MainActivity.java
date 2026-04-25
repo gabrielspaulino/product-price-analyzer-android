@@ -135,13 +135,11 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void setupAddProduct() {
-        // ArrayAdapter for autocomplete suggestions from Supabase
         ArrayAdapter<String> autocompleteAdapter = new ArrayAdapter<>(
                 this, android.R.layout.simple_dropdown_item_1line, new java.util.ArrayList<>());
         etProductName.setAdapter(autocompleteAdapter);
-        etProductName.setThreshold(2); // start suggesting after 2 chars
+        etProductName.setThreshold(2);
 
-        // Fetch suggestions from Supabase as user types
         etProductName.addTextChangedListener(new android.text.TextWatcher() {
             private final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
             private Runnable runnable;
@@ -155,7 +153,6 @@ public class MainActivity extends AppCompatActivity
                 String query = s != null ? s.toString().trim() : "";
                 if (query.length() < 2) return;
 
-                // Debounce: wait 300ms after user stops typing before fetching
                 runnable = () -> executor.execute(() -> {
                     try {
                         java.util.List<String> suggestions = SupabaseService.getInstance()
@@ -193,12 +190,8 @@ public class MainActivity extends AppCompatActivity
 
     private void setupRecycler() {
         adapter = new ProductAdapter(products, this);
-        // Override canScrollVertically so LinearLayoutManager measures ALL items,
-        // not just those fitting the screen. Required when inside a ScrollView.
         recyclerProducts.setLayoutManager(new NonScrollableLinearLayoutManager(this));
         recyclerProducts.setAdapter(adapter);
-        // nestedScrollingEnabled=false is required — lets NestedScrollView handle
-        // scrolling and forces RecyclerView to measure and render ALL items at once
         recyclerProducts.setNestedScrollingEnabled(false);
         recyclerProducts.setHasFixedSize(false);
 
@@ -217,36 +210,29 @@ public class MainActivity extends AppCompatActivity
         notificationPrefs = new NotificationPrefs(this);
         notificationPermissionLauncher = registerForActivityResult(
                 new ActivityResultContracts.RequestPermission(),
-                granted -> Log.d(TAG, "Notification permission granted: " + granted));
+                granted -> {
+                    Log.d(TAG, "Notification permission granted: " + granted);
+                    if (granted) {
+                        PushTokenManager.syncToken(this, currentUser);
+                    }
+                });
 
         NotificationHelper.createNotificationChannel(this);
+
         if (NotificationHelper.needsRuntimePermission()
                 && !NotificationHelper.canPostNotifications(this)) {
-            maybeAskNotificationPermission();
+            requestNotificationPermission();
+        } else {
+            PushTokenManager.syncToken(this, currentUser);
         }
     }
 
-    private void maybeAskNotificationPermission() {
+    private void requestNotificationPermission() {
         if (!NotificationHelper.needsRuntimePermission()) return;
-        if (NotificationHelper.canPostNotifications(this)) {
-            notificationPrefs.markPermissionRequested();
-            return;
-        }
-        if (notificationPrefs.isPermissionRequested()) return;
+        if (NotificationHelper.canPostNotifications(this)) return;
 
-        new AlertDialog.Builder(this, R.style.OwlyDialog)
-                .setTitle(R.string.notification_permission_title)
-                .setMessage(R.string.notification_permission_message)
-                .setPositiveButton(R.string.notification_permission_allow, (d, w) -> {
-                    notificationPrefs.markPermissionRequested();
-                    notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
-                })
-                .setNegativeButton(R.string.notification_permission_cancel, (d, w) ->
-                        notificationPrefs.markPermissionRequested())
-                .show();
+        notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
     }
-
-    // ── Data loading ─────────────────────────────────────────────────────────
 
     private void loadProducts() {
         progressBar.setVisibility(View.VISIBLE);
@@ -335,8 +321,6 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
-    // ── Analysis ─────────────────────────────────────────────────────────────
-
     private void analyze(Product product) {
         if (!SerperApiService.getInstance().hasApiKey()) {
             toast("Configure a chave Serper nas configurações");
@@ -383,8 +367,6 @@ public class MainActivity extends AppCompatActivity
             }
         });
     }
-
-    // ── Adapter callbacks ─────────────────────────────────────────────────────
 
     @Override public void onAnalyze(Product p) { analyze(p); }
 
@@ -446,8 +428,6 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
-    // ── Settings panel key save ───────────────────────────────────────────────
-
     private void saveSerperKey() {
         String key = etSerperKey.getText() != null
                 ? etSerperKey.getText().toString().trim() : "";
@@ -464,8 +444,6 @@ public class MainActivity extends AppCompatActivity
         toast("✓ Chave salva com sucesso!");
     }
 
-    // ── User menu ─────────────────────────────────────────────────────────────
-
     private void showUserMenu() {
         new AlertDialog.Builder(this, R.style.OwlyDialog)
                 .setTitle(currentUser.getDisplayEmail())
@@ -480,8 +458,6 @@ public class MainActivity extends AppCompatActivity
         session.clearSession();
         goToAuth();
     }
-
-    // ── Helpers ───────────────────────────────────────────────────────────────
 
     private void updateEmptyState() {
         boolean empty = products.isEmpty();

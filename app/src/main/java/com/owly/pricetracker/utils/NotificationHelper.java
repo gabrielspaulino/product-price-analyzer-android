@@ -28,8 +28,10 @@ public class NotificationHelper {
         NotificationChannel channel = new NotificationChannel(
                 CHANNEL_SALES_ID,
                 context.getString(R.string.notification_channel_sales),
-                NotificationManager.IMPORTANCE_DEFAULT);
+                NotificationManager.IMPORTANCE_HIGH);
         channel.setDescription(context.getString(R.string.notification_channel_sales_desc));
+        channel.enableVibration(true);
+        channel.setShowBadge(true);
 
         NotificationManager nm = context.getSystemService(NotificationManager.class);
         if (nm != null) nm.createNotificationChannel(channel);
@@ -79,11 +81,26 @@ public class NotificationHelper {
                 .setContentText(body)
                 .setContentIntent(pendingIntent)
                 .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_DEFAULT);
+                .setPriority(NotificationCompat.PRIORITY_HIGH);
 
         NotificationManagerCompat.from(context).notify(
                 product.getId() != null ? product.getId().hashCode() : (int) System.currentTimeMillis(),
                 builder.build());
+    }
+
+    public static void sendFallbackNotification(Context context, String title, String body) {
+        if (title == null && body == null) return;
+        if (!canPostNotifications(context)) return;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SALES_ID)
+                .setSmallIcon(R.drawable.ic_notification)
+                .setContentTitle(title != null ? title : context.getString(R.string.app_name))
+                .setContentText(body != null ? body : "")
+                .setAutoCancel(true)
+                .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+        NotificationManagerCompat.from(context).notify(
+                (int) System.currentTimeMillis(), builder.build());
     }
 
     public static void sendRemoteSaleNotification(

@@ -22,16 +22,31 @@ public class OwlyFirebaseMessagingService extends FirebaseMessagingService {
     public void onMessageReceived(RemoteMessage message) {
         super.onMessageReceived(message);
         NotificationHelper.createNotificationChannel(this);
-        NotificationHelper.sendRemoteSaleNotification(
-                this,
-                message.getData().get("product_id"),
-                message.getData().get("product_name"),
-                message.getData().get("watch_id"),
-                parseDouble(message.getData().get("price")),
-                parseDouble(message.getData().get("target_price")),
-                message.getData().get("last_updated"),
-                message.getData().get("source_account")
-        );
+
+        java.util.Map<String, String> data = message.getData();
+
+        if (!data.isEmpty()) {
+            NotificationHelper.sendRemoteSaleNotification(
+                    this,
+                    data.get("product_id"),
+                    data.get("product_name"),
+                    data.get("watch_id"),
+                    parseDouble(data.get("price")),
+                    parseDouble(data.get("target_price")),
+                    data.get("last_updated"),
+                    data.get("source_account")
+            );
+            return;
+        }
+
+        RemoteMessage.Notification notification = message.getNotification();
+        if (notification != null) {
+            NotificationHelper.sendFallbackNotification(
+                    this,
+                    notification.getTitle(),
+                    notification.getBody()
+            );
+        }
     }
 
     private double parseDouble(String value) {
