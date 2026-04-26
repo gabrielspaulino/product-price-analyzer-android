@@ -2,7 +2,7 @@
 -- 1. Deploy the Edge Function:
 --      supabase functions deploy analyze-watched-products
 -- 2. Set function secrets:
---      supabase secrets set OPENAI_API_KEY=... CRON_SECRET=...
+--      supabase secrets set CRON_SECRET=...
 -- 3. Store secrets in Vault:
 --      select vault.create_secret('https://zjkvahwiyzixunjqiyvk.supabase.co', 'project_url');
 --      select vault.create_secret('<same CRON_SECRET value>', 'cron_secret');

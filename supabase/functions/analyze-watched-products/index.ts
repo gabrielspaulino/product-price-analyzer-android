@@ -2,85 +2,14 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON") ?? "";
 
 const SERPER_URL = "https://google.serper.dev/search";
-const OPENAI_URL = "https://api.openai.com/v1/chat/completions";
-const OPENAI_MODEL = "gpt-5-nano";
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const MAX_CONCURRENCY = 2;
 const WALL_CLOCK_LIMIT_MS = 120_000;
 const FETCH_TIMEOUT_MS = 30_000;
-
-const OPENAI_VALIDATE_AND_EXTRACT_PROMPT_TEMPLATE =
-  `You are an AI that evaluates product deals AND extracts prices.
-
-TASK:
-1. Determine if the text describes a real deal for the searched product.
-2. If it IS a valid deal, extract the price.
-
-VALIDATION RULES:
-- The text must clearly offer the product for sale (price, discount, payment method, or store).
-- The product must match the searched product EXACTLY.
-- Accessories, parts, or related items are NOT valid (e.g. a controller is NOT a PlayStation 5).
-- Mentions in news, opinions, speculation, or announcements are NOT valid.
-- Bundles are valid ONLY if the main product is the searched product.
-- Be strict: if there is any doubt, return INVALID.
-
-PRICE RULES:
-- "99,00" = 99.00 / "950" = 950.00 / "1.240" = 1240.00 / "2.340,99" = 2340.99
-- Comma + 2 digits = decimal. Dot + 3 digits = thousands separator.
-- Return the lowest/best price if multiple are present.
-
-OUTPUT FORMAT (exactly one of):
-- If NOT a valid deal: INVALID
-- If valid deal: the numeric price with dot as decimal separator (e.g. 999.90)
-No other text.
-
-Searched product: "%s"
-Text: "%s"`;
-
-const OPENAI_DATE_PARSER_PROMPT_TEMPLATE =
-  `You are a date parser.
-
-Convert the given human-readable date/time expression into an ISO 8601 value.
-
-Rules:
-1. The input may be in English or Portuguese.
-2. Handle both absolute and relative dates.
-
-RELATIVE DATES:
-- Examples: "7 hours ago", "há 4 dias", "2 days ago"
-- Use the provided reference datetime as "now".
-- Subtract the specified amount of time.
-- Preserve hours and minutes from the reference datetime unless explicitly overridden.
-
-ABSOLUTE DATES:
-- Examples: "Mar 25, 2026", "30 de mar. de 2026"
-- Convert to YYYY-MM-DD.
-- If no time is provided, preserve the calendar date and return it as:
-  YYYY-MM-DDT12:00:00Z
-- This noon UTC default is required so timezone conversions do not move the value to the previous day.
-
-LANGUAGE HANDLING:
-- English and Portuguese month names and abbreviations must be supported.
-  Examples:
-  - "Mar", "March", "mar.", "março"
-- Portuguese relative terms:
-  - "há" = "ago"
-  - "dias" = "days"
-  - "horas" = "hours"
-
-REFERENCE DATETIME:
-%s
-
-INPUT:
-%s
-
-OUTPUT:
-Return ONLY the ISO 8601 value. No explanation.`;
 
 type AnalysisTarget = {
   product_id: string;
@@ -142,9 +71,6 @@ Deno.serve(async (req) => {
     return json({ error: "Unauthorized" }, 401);
   }
 
-  if (!OPENAI_API_KEY) {
-    return json({ error: "Missing OPENAI_API_KEY secret" }, 500);
-  }
   if (!FIREBASE_SERVICE_ACCOUNT_JSON) {
     return json({ error: "Missing FIREBASE_SERVICE_ACCOUNT_JSON secret" }, 500);
   }
@@ -351,8 +277,8 @@ async function searchTwitterPrices(
     if (!combined) continue;
 
     try {
-      const price = await validateAndExtractPrice(productName, combined);
-      console.log(`[OPENAI] "${productName}" result for "${link}": price=${price}`);
+      const price = extractPrice(combined);
+      console.log(`[EXTRACT] "${productName}" result for "${link}": price=${price}`);
       if (price == null) continue;
 
       snapshots.push({
@@ -361,57 +287,78 @@ async function searchTwitterPrices(
         source_account: extractTwitterHandle(link),
         tweet_excerpt: snippet ? snippet.slice(0, 280) : null,
         tweet_url: link,
-        tweet_date: item.date ? await parseTweetDate(item.date) : null,
+        tweet_date: item.date ? parseTweetDate(item.date) : null,
       });
     } catch (error) {
-      console.error(`[OPENAI] "${productName}" failed for "${link}":`, error);
+      console.error(`[EXTRACT] "${productName}" failed for "${link}":`, error);
     }
   }
 
   return snapshots;
 }
 
-async function validateAndExtractPrice(productName: string, postText: string): Promise<number | null> {
-  const prompt = formatPrompt(OPENAI_VALIDATE_AND_EXTRACT_PROMPT_TEMPLATE, productName.trim(), postText.trim());
-  const content = await fetchOpenAiContent(prompt);
-  const trimmed = content.trim().toUpperCase();
-  if (trimmed === "INVALID" || trimmed === "FALSE") return null;
-  const parsed = Number.parseFloat(trimmed);
-  return Number.isFinite(parsed) ? parsed : null;
+function extractPrice(text: string): number | null {
+  const matches = [...text.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)];
+  if (matches.length === 0) return null;
+
+  let lowest = Number.POSITIVE_INFINITY;
+  for (const match of matches) {
+    const raw = match[1].replace(/\./g, "").replace(",", ".");
+    const value = Number.parseFloat(raw);
+    if (Number.isFinite(value) && value > 0) lowest = Math.min(lowest, value);
+  }
+  return Number.isFinite(lowest) ? lowest : null;
 }
 
-async function parseTweetDate(dateText: string): Promise<string | null> {
-  const prompt = formatPrompt(OPENAI_DATE_PARSER_PROMPT_TEMPLATE, new Date().toISOString(), dateText.trim());
-  const content = await fetchOpenAiContent(prompt);
-  return content.trim() || null;
-}
+const MONTH_MAP: Record<string, number> = {
+  jan: 0, january: 0, janeiro: 0,
+  feb: 1, fev: 1, february: 1, fevereiro: 1,
+  mar: 2, march: 2, "março": 2,
+  apr: 3, abr: 3, april: 3, abril: 3,
+  may: 4, mai: 4, maio: 4,
+  jun: 5, june: 5, junho: 5,
+  jul: 6, july: 6, julho: 6,
+  aug: 7, ago: 7, august: 7, agosto: 7,
+  sep: 8, set: 8, september: 8, setembro: 8,
+  oct: 9, out: 9, october: 9, outubro: 9,
+  nov: 10, november: 10, novembro: 10,
+  dec: 11, dez: 11, december: 11, dezembro: 11,
+};
 
-async function fetchOpenAiContent(prompt: string): Promise<string> {
-  const payload = {
-    model: OPENAI_MODEL,
-    messages: [{ role: "user", content: prompt }],
-  };
+function parseTweetDate(dateText: string): string | null {
+  const text = dateText.trim().toLowerCase().replace(/\./g, "");
+  const now = new Date();
 
-  const response = await fetchWithTimeout(OPENAI_URL, {
-    method: "POST",
-    headers: {
-      ...JSON_HEADERS,
-      Authorization: `Bearer ${OPENAI_API_KEY}`,
-    },
-    body: JSON.stringify(payload),
-  });
-
-  const body = await response.text();
-  if (!response.ok) {
-    throw new Error(`OpenAI error: ${response.status} ${body}`);
+  const relMatch = text.match(/(?:há\s+)?(\d+)\s*(hour|hora|day|dia|minute|minuto|min|h|d|m)s?\s*(?:ago|atrás)?/i);
+  if (relMatch) {
+    const amount = parseInt(relMatch[1], 10);
+    const unit = relMatch[2].toLowerCase();
+    const ms = unit.startsWith("h") || unit.startsWith("hora")
+      ? amount * 3600_000
+      : unit.startsWith("d") || unit.startsWith("dia")
+        ? amount * 86400_000
+        : amount * 60_000;
+    return new Date(now.getTime() - ms).toISOString();
   }
 
-  const json = JSON.parse(body);
-  const content = json?.choices?.[0]?.message?.content;
-  if (typeof content !== "string" || !content.trim()) {
-    throw new Error("OpenAI returned an empty response");
+  for (const [name, idx] of Object.entries(MONTH_MAP)) {
+    const patterns = [
+      new RegExp(`${name}\\s+(\\d{1,2}),?\\s+(\\d{4})`),
+      new RegExp(`(\\d{1,2})\\s+(?:de\\s+)?${name}(?:\\s+(?:de\\s+)?(\\d{4}))?`),
+    ];
+    for (const pattern of patterns) {
+      const m = text.match(pattern);
+      if (m) {
+        const day = parseInt(m[1].length <= 2 ? m[1] : m[2], 10);
+        const year = parseInt(m[1].length === 4 ? m[1] : (m[2] ?? String(now.getFullYear())), 10);
+        const dayVal = patterns.indexOf(pattern) === 0 ? parseInt(m[1], 10) : day;
+        const yearVal = patterns.indexOf(pattern) === 0 ? parseInt(m[2], 10) : year;
+        return `${yearVal}-${String(idx + 1).padStart(2, "0")}-${String(dayVal).padStart(2, "0")}T12:00:00Z`;
+      }
+    }
   }
-  return content;
+
+  return null;
 }
 
 async function sendNotificationsForSnapshot(target: AnalysisTarget, snapshot: PriceSnapshot): Promise<number> {
@@ -642,14 +589,6 @@ function extractTwitterHandle(url: string): string {
   } catch {
     return "@xetdaspromocoes";
   }
-}
-
-function formatPrompt(template: string, ...values: string[]): string {
-  let result = template;
-  for (const value of values) {
-    result = result.replace("%s", value);
-  }
-  return result;
 }
 
 function isUnregisteredFcmToken(errorBody: string): boolean {

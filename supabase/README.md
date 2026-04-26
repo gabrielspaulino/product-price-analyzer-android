@@ -15,7 +15,6 @@ This repository now includes a Supabase Edge Function that replaces the Android 
 
 Set these as Supabase Edge Function secrets:
 
-- `OPENAI_API_KEY`
 - `CRON_SECRET`
 - `FIREBASE_SERVICE_ACCOUNT_JSON`
 
@@ -33,7 +32,7 @@ The function already receives these default Supabase secrets automatically:
 
 3. Set function secrets:
 
-   `supabase secrets set OPENAI_API_KEY=... CRON_SECRET=... FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'`
+   `supabase secrets set CRON_SECRET=... FIREBASE_SERVICE_ACCOUNT_JSON='{"type":"service_account",...}'`
 
 4. Save the project URL and the same cron secret in Vault:
 

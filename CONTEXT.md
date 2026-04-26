@@ -23,7 +23,7 @@ Lightweight MVC with a Service Layer. No local database -- all data lives in Sup
 ```
 Activities (UI) --> Services (API) --> Remote APIs
                                        |
-                         Supabase / Serper / OpenAI / FCM
+                         Supabase / Serper / Grok / FCM
 ```
 
 Key patterns: Singleton services, Worker for background jobs, Adapter pattern for RecyclerViews, Manager classes for orchestrating workflows.
@@ -34,7 +34,7 @@ Key patterns: Singleton services, Worker for background jobs, Adapter pattern fo
 |---------|---------|
 | **Supabase** | Auth, product DB, watchlist, price snapshots, device tokens |
 | **Serper API** | Google search targeting Twitter/X deal accounts |
-| **OpenAI** (`gpt-5-nano`) | Deal validation, price extraction, date parsing |
+| **Grok** (`grok-4.20-reasoning`) | Deal search, validation, price extraction via X search |
 | **Firebase (FCM)** | Push notifications for price drops |
 | **Google Cloud Storage** | Logo images (light/dark variants) |
 
@@ -45,7 +45,7 @@ app/src/main/java/com/owly/pricetracker/
   activities/        5 Activity classes (Splash, Auth, Main, ProductDetail, Settings)
   adapters/          ProductAdapter, SnapshotAdapter
   models/            User, Product, PriceSnapshot
-  services/          SupabaseService, SerperApiService, OwlyFirebaseMessagingService
+  services/          SupabaseService, GrokSearchService, OwlyFirebaseMessagingService
   utils/             SessionManager, ProductAnalysisManager, NotificationHelper,
                      PushTokenManager, NotificationPrefs, LogoLoader,
                      NonScrollableLinearLayoutManager
@@ -64,11 +64,11 @@ app/src/main/java/com/owly/pricetracker/
 
 ### Services
 - **SupabaseService** -- Singleton. All Supabase REST calls (auth, CRUD, RPC). Uses OkHttp.
-- **SerperApiService** -- Singleton. Serper search + OpenAI chat completions for deal validation, price extraction, date parsing.
+- **GrokSearchService** -- Singleton. Grok x_search for deal discovery, validation, and price extraction.
 
 ### Background Work
 - **ProductAnalysisScheduler** -- Schedules hourly analysis via WorkManager with network constraint.
-- **ProductAnalysisWorker** -- Fetches watchlist, runs Serper+OpenAI pipeline per product, saves snapshots, sends notifications.
+- **ProductAnalysisWorker** -- Fetches watchlist, runs Grok pipeline per product, saves snapshots, sends notifications.
 
 ### Utilities
 - **ProductAnalysisManager** -- Orchestrates the search-validate-extract-save-notify pipeline. Used by both the worker and manual triggers.
@@ -91,7 +91,7 @@ device_tokens    (id, user_id, token, platform)
 
 API keys are injected via `local.properties` into `BuildConfig`:
 - `SUPABASE_URL`, `SUPABASE_ANON_KEY` -- Supabase connection
-- `OPENAI_API_KEY` -- OpenAI API access
+- `GROK_API_KEY` -- Grok API access
 - `FIREBASE_ENABLED` -- Boolean, true if `google-services.json` exists
 
 View binding is enabled. ProGuard is configured for release builds.
@@ -107,8 +107,8 @@ View binding is enabled. ProGuard is configured for release builds.
 
 1. User adds product or hourly worker triggers
 2. Serper searches Twitter/X for deals (targeting known promo accounts)
-3. OpenAI validates each result is a genuine deal for that product
-4. OpenAI extracts price (R$ format) and tweet date
+3. Price extracted from search results (R$ format)
+4. Tweet date parsed from search metadata
 5. Snapshot saved to Supabase
 6. Product's current_price updated if lower
 7. Local + push notification sent if price <= target_price
