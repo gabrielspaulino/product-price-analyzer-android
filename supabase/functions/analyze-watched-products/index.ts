@@ -478,7 +478,7 @@ async function sendFcmMessage(
           android: {
             priority: "high",
             notification: {
-              channel_id: "owly_sales",
+              channel_id: "promo_sales",
             },
           },
           data: {

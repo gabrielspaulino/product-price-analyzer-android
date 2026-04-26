@@ -57,7 +57,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                style="@style/OwlyCard">
+                style="@style/PromoTrackerCard">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -144,7 +144,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
                         android:text="Analisar Agora"
-                        style="@style/OwlyButton.Primary"/>
+                        style="@style/PromoTrackerButton.Primary"/>
 
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
@@ -154,7 +154,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginBottom="12dp"
-                style="@style/OwlyCard">
+                style="@style/PromoTrackerCard">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -194,7 +194,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="12dp"
                         android:hint="Novo preço alvo (R$)"
-                        style="@style/OwlyTextInput">
+                        style="@style/PromoTrackerTextInput">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_target_price"
@@ -217,7 +217,7 @@
                             android:layout_weight="2"
                             android:layout_marginEnd="8dp"
                             android:text="@string/save_target"
-                            style="@style/OwlyButton.Primary"/>
+                            style="@style/PromoTrackerButton.Primary"/>
 
                         <Button
                             android:id="@+id/btn_clear_target"
@@ -225,7 +225,7 @@
                             android:layout_height="wrap_content"
                             android:layout_weight="1"
                             android:text="@string/clear_target"
-                            style="@style/OwlyButton.Outline"/>
+                            style="@style/PromoTrackerButton.Outline"/>
                     </LinearLayout>
 
                 </LinearLayout>
@@ -235,7 +235,7 @@
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                style="@style/OwlyCard">
+                style="@style/PromoTrackerCard">
 
                 <LinearLayout
                     android:layout_width="match_parent"
@@ -266,7 +266,7 @@
                             android:layout_marginEnd="8dp"
                             android:minWidth="0dp"
                             android:text="Mais recentes"
-                            style="@style/OwlyButton.Outline"/>
+                            style="@style/PromoTrackerButton.Outline"/>
 
                         <Button
                             android:id="@+id/btn_sort_price"
@@ -274,7 +274,7 @@
                             android:layout_height="wrap_content"
                             android:minWidth="0dp"
                             android:text="Menor preço"
-                            style="@style/OwlyButton.Outline"/>
+                            style="@style/PromoTrackerButton.Outline"/>
                     </LinearLayout>
 
                     <ProgressBar

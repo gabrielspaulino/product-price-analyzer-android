@@ -7,9 +7,9 @@
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:209984387836:android:b804e42a46f5fbdfa3b579",
+        "mobilesdk_app_id": "1:209984387836:android:838e4a3f73eb1edaa3b579",
         "android_client_info": {
-          "package_name": "com.owly.pricetracker"
+          "package_name": "com.promo.tracker"
         }
       },
       "oauth_client": [],

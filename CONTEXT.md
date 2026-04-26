@@ -1,4 +1,4 @@
-# Owly - Rastreador Inteligente de Precos (Price Tracker)
+# PromoTracker - Rastreador Inteligente de Precos (Price Tracker)
 
 Android app that monitors e-commerce product prices by scraping Twitter/X deal accounts and using AI to validate and extract pricing data. Users add products to a watchlist and receive notifications when prices drop below their target.
 
@@ -45,12 +45,12 @@ app/src/main/java/com/owly/pricetracker/
   activities/        5 Activity classes (Splash, Auth, Main, ProductDetail, Settings)
   adapters/          ProductAdapter, SnapshotAdapter
   models/            User, Product, PriceSnapshot
-  services/          SupabaseService, GrokSearchService, OwlyFirebaseMessagingService
+  services/          SupabaseService, GrokSearchService, PromoTrackerFirebaseMessagingService
   utils/             SessionManager, ProductAnalysisManager, NotificationHelper,
                      PushTokenManager, NotificationPrefs, LogoLoader,
                      NonScrollableLinearLayoutManager
   work/              ProductAnalysisWorker, ProductAnalysisScheduler
-  OwlyApplication.java
+  PromoTrackerApplication.java
 ```
 
 ## Key Classes

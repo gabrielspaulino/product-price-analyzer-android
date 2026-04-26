@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="12dp"
-    style="@style/OwlyCard">
+    style="@style/PromoTrackerCard">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -139,7 +139,7 @@
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                style="@style/OwlyTextInput.Dense">
+                style="@style/PromoTrackerTextInput.Dense">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/et_target_price"
@@ -162,7 +162,7 @@
                 android:minWidth="0dp"
                 android:paddingStart="14dp"
                 android:paddingEnd="14dp"
-                style="@style/OwlyButton.Primary"/>
+                style="@style/PromoTrackerButton.Primary"/>
 
         </LinearLayout>
 
@@ -179,7 +179,7 @@
                 android:layout_weight="1"
                 android:layout_marginEnd="8dp"
                 android:text="@string/analyze_btn"
-                style="@style/OwlyButton.Primary"/>
+                style="@style/PromoTrackerButton.Primary"/>
 
             <Button
                 android:id="@+id/btn_remove"
@@ -187,7 +187,7 @@
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
                 android:text="@string/remove_btn"
-                style="@style/OwlyButton.Outline"/>
+                style="@style/PromoTrackerButton.Outline"/>
 
         </LinearLayout>
 

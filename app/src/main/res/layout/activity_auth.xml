@@ -12,17 +12,35 @@
         android:layout_height="wrap_content"
         android:padding="24dp">
 
-        <!-- Logo top-left -->
-        <ImageView
-            android:id="@+id/iv_logo"
-            android:layout_width="120dp"
-            android:layout_height="40dp"
+        <!-- Logo + app name -->
+        <LinearLayout
+            android:id="@+id/layout_logo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
             android:layout_marginTop="24dp"
-            android:scaleType="fitStart"
-            android:adjustViewBounds="true"
-            android:contentDescription="Owly logo"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"/>
+            app:layout_constraintTop_toTopOf="parent">
+
+            <ImageView
+                android:id="@+id/iv_logo"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:scaleType="fitCenter"
+                android:adjustViewBounds="true"
+                android:contentDescription="PromoTracker logo"/>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:text="@string/app_name"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
+                android:fontFamily="@font/inter_semibold"/>
+
+        </LinearLayout>
 
         <!-- Auth Card -->
         <androidx.cardview.widget.CardView
@@ -35,7 +53,7 @@
             app:cardElevation="2dp"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/iv_logo"
+        app:layout_constraintTop_toBottomOf="@id/layout_logo"
             app:strokeColor="@color/card_stroke"
             app:strokeWidth="1dp">
 
@@ -90,7 +108,7 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="14dp"
-                    style="@style/OwlyTextInput">
+                    style="@style/PromoTrackerTextInput">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/et_email"
@@ -117,7 +135,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginBottom="14dp"
                     app:passwordToggleEnabled="true"
-                    style="@style/OwlyTextInput">
+                    style="@style/PromoTrackerTextInput">
 
                     <com.google.android.material.textfield.TextInputEditText
                         android:id="@+id/et_password"
@@ -151,7 +169,7 @@
                         android:layout_height="wrap_content"
                         android:layout_marginBottom="14dp"
                         app:passwordToggleEnabled="true"
-                        style="@style/OwlyTextInput">
+                        style="@style/PromoTrackerTextInput">
 
                         <com.google.android.material.textfield.TextInputEditText
                             android:id="@+id/et_password_confirm"
@@ -180,7 +198,7 @@
                     android:layout_height="wrap_content"
                     android:layout_marginTop="4dp"
                     android:text="@string/enter_btn"
-                    style="@style/OwlyButton.Primary"/>
+                    style="@style/PromoTrackerButton.Primary"/>
 
                 <!-- Toggle login/register -->
                 <LinearLayout

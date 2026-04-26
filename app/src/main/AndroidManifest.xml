@@ -7,19 +7,19 @@
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
 
     <application
-        android:name=".OwlyApplication"
+        android:name=".PromoTrackerApplication"
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.Owly"
+        android:theme="@style/Theme.PromoTracker"
         android:usesCleartextTraffic="false">
 
         <activity
             android:name=".activities.SplashActivity"
             android:exported="true"
-            android:theme="@style/Theme.Owly.Splash">
+            android:theme="@style/Theme.PromoTracker.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
@@ -48,10 +48,10 @@
 
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="owly_sales" />
+            android:value="promo_sales" />
 
         <service
-            android:name=".services.OwlyFirebaseMessagingService"
+            android:name=".services.PromoTrackerFirebaseMessagingService"
             android:exported="false">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />

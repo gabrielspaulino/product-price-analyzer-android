@@ -1,4 +1,4 @@
--- Supabase schema for Owly domain model (see class-diagram.mmd)
+-- Supabase schema for PromoTracker domain model (see class-diagram.mmd)
 -- Run with: supabase db push -f supabase-schema.sql
 
 -- Ensure UUID generation helpers are available

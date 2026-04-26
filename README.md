@@ -1,6 +1,6 @@
-# Owly Android — Rastreador Inteligente de Preços
+# PromoTracker — Rastreador Inteligente de Preços
 
-Versão Android nativa (Java 21) do Owly, com design fiel à versão web e banco Supabase compartilhado.
+Versão Android nativa (Java 21) do PromoTracker, com design fiel à versão web e banco Supabase compartilhado.
 
 ## ⚙️ Configuração obrigatória
 

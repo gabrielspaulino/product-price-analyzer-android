@@ -2,7 +2,19 @@
   "permissions": {
     "allow": [
       "Bash(./gradlew assembleDebug)",
-      "Bash(gradle wrapper *)"
+      "Bash(gradle wrapper *)",
+      "Bash(python3 -c \"from PIL import Image; img = Image.open\\(r'C:\\\\Users\\\\gabri\\\\Downloads\\\\logo.png'\\); print\\(img.size\\)\")",
+      "Bash(python -c \"from PIL import Image; img = Image.open\\(r'C:\\\\Users\\\\gabri\\\\Downloads\\\\logo.png'\\); print\\(img.size\\)\")",
+      "Bash(python3 -c \"print\\('ok'\\)\")",
+      "Bash(python -c \"print\\('ok'\\)\")",
+      "Bash(python *)",
+      "Bash(pip install *)",
+      "Bash(curl -L -o \"C:\\\\Users\\\\gabri\\\\OneDrive\\\\Documentos\\\\projetos\\\\OwlyAndroid\\\\app\\\\src\\\\main\\\\res\\\\font\\\\inter_semibold.ttf\" \"https://github.com/rsms/inter/raw/v4.1/fonts/desktop/Inter-SemiBold.otf\")",
+      "Bash(curl -L -o \"C:\\\\Users\\\\gabri\\\\OneDrive\\\\Documentos\\\\projetos\\\\OwlyAndroid\\\\app\\\\src\\\\main\\\\res\\\\font\\\\inter_semibold.ttf\" \"https://github.com/rsms/inter/raw/v4.1/fonts/desktop/Inter-SemiBold.ttf\")",
+      "Bash(curl -L -o \"C:\\\\Users\\\\gabri\\\\OneDrive\\\\Documentos\\\\projetos\\\\OwlyAndroid\\\\app\\\\src\\\\main\\\\res\\\\font\\\\inter_semibold.ttf\" \"https://raw.githubusercontent.com/rsms/inter/v4.1/fonts/desktop/Inter-SemiBold.ttf\")",
+      "Bash(curl -L -o /tmp/inter.zip \"https://github.com/rsms/inter/releases/download/v4.1/Inter-4.1.zip\")",
+      "Bash(unzip -o -j /tmp/inter.zip \"extras/ttf/Inter-SemiBold.ttf\" -d /tmp/)",
+      "Bash(cp /tmp/Inter-SemiBold.ttf \"C:\\\\Users\\\\gabri\\\\OneDrive\\\\Documentos\\\\projetos\\\\OwlyAndroid\\\\app\\\\src\\\\main\\\\res\\\\font\\\\inter_semibold.ttf\")"
     ]
   }
 }

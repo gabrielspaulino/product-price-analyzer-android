@@ -1,4 +1,4 @@
--keep class com.owly.pricetracker.models.** { *; }
+-keep class com.promo.tracker.models.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -keep class okhttp3.** { *; }
