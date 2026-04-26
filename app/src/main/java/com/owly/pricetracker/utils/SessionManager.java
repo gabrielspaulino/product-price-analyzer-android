@@ -11,8 +11,6 @@ public class SessionManager {
     private static final String KEY_EMAIL         = "email";
     private static final String KEY_ACCESS_TOKEN  = "access_token";
     private static final String KEY_REFRESH_TOKEN = "refresh_token";
-    private static final String KEY_SERPER_KEY    = "serper_key";
-
     private final SharedPreferences prefs;
     private static SessionManager instance;
 
@@ -62,13 +60,5 @@ public class SessionManager {
         return prefs.getString(KEY_ID, null) != null
                 && prefs.getString(KEY_REFRESH_TOKEN, null) != null
                 && prefs.getString(KEY_ACCESS_TOKEN, null) != null;
-    }
-
-    public void saveSerperKey(String key) {
-        prefs.edit().putString(KEY_SERPER_KEY, key).apply();
-    }
-
-    public String getSerperKey() {
-        return prefs.getString(KEY_SERPER_KEY, null);
     }
 }

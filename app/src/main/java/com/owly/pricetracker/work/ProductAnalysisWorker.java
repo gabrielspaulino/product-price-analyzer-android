@@ -8,7 +8,7 @@ import androidx.work.WorkerParameters;
 
 import com.owly.pricetracker.models.Product;
 import com.owly.pricetracker.models.User;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.NotificationHelper;
 import com.owly.pricetracker.utils.ProductAnalysisManager;
@@ -30,9 +30,7 @@ public class ProductAnalysisWorker extends Worker {
         User currentUser = getRefreshedUser(session);
         if (currentUser == null) return Result.success();
 
-        String serperKey = session.getSerperKey();
-        if (serperKey == null || serperKey.isEmpty()) return Result.success();
-        SerperApiService.getInstance().setApiKey(serperKey);
+        if (!GrokSearchService.getInstance().hasApiKey()) return Result.success();
 
         NotificationHelper.createNotificationChannel(context);
 

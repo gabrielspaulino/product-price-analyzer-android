@@ -360,41 +360,6 @@ public class SupabaseService {
         }
     }
 
-    // ─── API Credentials ─────────────────────────────────────────────────────
-
-    public void saveApiCredentials(String token, String userId, String serperKey) throws IOException {
-        JsonObject body = new JsonObject();
-        body.addProperty("user_id", userId);
-        body.addProperty("serper_key", serperKey);
-        Request req = new Request.Builder()
-                .url(baseUrl + "/rest/v1/api_credentials")
-                .post(body(body))
-                .addHeader("apikey", anonKey)
-                .addHeader("Authorization", "Bearer " + token)
-                .addHeader("Prefer", "resolution=merge-duplicates,return=minimal")
-                .build();
-        try (Response r = http.newCall(req).execute()) {
-            if (!r.isSuccessful()) Log.e(TAG, "saveApiCredentials failed: " + r.code());
-        }
-    }
-
-    public String getSerperKey(String token, String userId) {
-        try {
-            String url = baseUrl + "/rest/v1/api_credentials?user_id=eq." + userId + "&select=serper_key";
-            try (Response r = http.newCall(authGet(token, url)).execute()) {
-                String rb = r.body().string();
-                if (!r.isSuccessful()) return null;
-                JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
-                if (arr.size() > 0) {
-                    JsonObject o = arr.get(0).getAsJsonObject();
-                    if (o.has("serper_key") && !o.get("serper_key").isJsonNull())
-                        return o.get("serper_key").getAsString();
-                }
-            }
-        } catch (Exception e) { Log.e(TAG, "getSerperKey error", e); }
-        return null;
-    }
-
     public void registerDeviceToken(String token, String deviceToken) throws IOException {
         JsonObject body = new JsonObject();
         body.addProperty("p_token", deviceToken);

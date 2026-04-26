@@ -5,7 +5,7 @@ import android.content.Context;
 import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.models.Product;
 import com.owly.pricetracker.models.User;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 import com.owly.pricetracker.services.SupabaseService;
 
 import java.io.IOException;
@@ -36,7 +36,7 @@ public class ProductAnalysisManager {
 
         try {
             List<PriceSnapshot> snapshots = new ArrayList<>(
-                    SerperApiService.getInstance().searchTwitterPrices(product.getName(), product.getLastUpdated()));
+                    GrokSearchService.getInstance().searchTwitterPrices(product.getName(), product.getLastUpdated()));
             double lowest = Double.MAX_VALUE;
             for (PriceSnapshot snapshot : snapshots) {
                 snapshot.setProductId(product.getId());

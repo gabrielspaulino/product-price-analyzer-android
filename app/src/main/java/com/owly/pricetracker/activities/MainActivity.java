@@ -22,12 +22,11 @@ import android.widget.ArrayAdapter;
 import android.widget.AutoCompleteTextView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
-import com.google.android.material.textfield.TextInputEditText;
 import com.owly.pricetracker.R;
 import com.owly.pricetracker.adapters.ProductAdapter;
 import com.owly.pricetracker.models.Product;
 import com.owly.pricetracker.models.User;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.LogoLoader;
 import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
@@ -50,13 +49,6 @@ public class MainActivity extends AppCompatActivity
     private android.widget.ImageView ivLogo;
     private TextView tvAvatar, tvUserEmail;
     private LinearLayout layoutUser;
-
-    // Settings panel
-    private LinearLayout layoutSettingsContent;
-    private TextView btnToggleSettings;
-    private TextInputEditText etSerperKey;
-    private Button btnSaveKeys;
-    private boolean settingsExpanded = true;
 
     // Add product
     private AutoCompleteTextView etProductName;
@@ -89,10 +81,8 @@ public class MainActivity extends AppCompatActivity
 
         bindViews();
         setupHeader();
-        setupSettingsPanel();
         setupAddProduct();
         setupRecycler();
-        initSerperKey();
         initNotificationSupport();
         analysisManager = new ProductAnalysisManager(this, currentUser);
         loadProducts();
@@ -103,10 +93,6 @@ public class MainActivity extends AppCompatActivity
         tvAvatar         = findViewById(R.id.tv_avatar);
         tvUserEmail      = findViewById(R.id.tv_user_email);
         layoutUser       = findViewById(R.id.layout_user);
-        layoutSettingsContent = findViewById(R.id.layout_settings_content);
-        btnToggleSettings = findViewById(R.id.btn_toggle_settings);
-        etSerperKey      = findViewById(R.id.et_serper_key);
-        btnSaveKeys      = findViewById(R.id.btn_save_keys);
         etProductName    = findViewById(R.id.et_product_name);
         btnAddProduct    = findViewById(R.id.btn_add_product);
         btnAnalyzeAll    = findViewById(R.id.btn_analyze_all);
@@ -123,15 +109,6 @@ public class MainActivity extends AppCompatActivity
         tvAvatar.setText(currentUser.getInitial());
         tvUserEmail.setText(currentUser.getDisplayEmail());
         layoutUser.setOnClickListener(v -> showUserMenu());
-    }
-
-    private void setupSettingsPanel() {
-        btnToggleSettings.setOnClickListener(v -> {
-            settingsExpanded = !settingsExpanded;
-            layoutSettingsContent.setVisibility(settingsExpanded ? View.VISIBLE : View.GONE);
-            btnToggleSettings.setText(settingsExpanded ? "▲" : "▼");
-        });
-        btnSaveKeys.setOnClickListener(v -> saveSerperKey());
     }
 
     private void setupAddProduct() {
@@ -197,13 +174,6 @@ public class MainActivity extends AppCompatActivity
 
         swipeRefresh.setColorSchemeResources(R.color.accent_primary_fallback);
         swipeRefresh.setOnRefreshListener(this::loadProducts);
-    }
-
-    private void initSerperKey() {
-        String key = session.getSerperKey();
-        if (key != null && !key.isEmpty()) {
-            SerperApiService.getInstance().setApiKey(key);
-        }
     }
 
     private void initNotificationSupport() {
@@ -322,8 +292,8 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void analyze(Product product) {
-        if (!SerperApiService.getInstance().hasApiKey()) {
-            toast("Configure a chave Serper nas configurações");
+        if (!GrokSearchService.getInstance().hasApiKey()) {
+            toast("Chave da API Grok não configurada");
             return;
         }
         markProductLoading(product);
@@ -331,8 +301,8 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void analyzeAll() {
-        if (!SerperApiService.getInstance().hasApiKey()) {
-            toast("Configure a chave Serper nas configurações");
+        if (!GrokSearchService.getInstance().hasApiKey()) {
+            toast("Chave da API Grok não configurada");
             return;
         }
         if (products.isEmpty()) { toast("Nenhum produto para analisar"); return; }
@@ -428,22 +398,6 @@ public class MainActivity extends AppCompatActivity
         });
     }
 
-    private void saveSerperKey() {
-        String key = etSerperKey.getText() != null
-                ? etSerperKey.getText().toString().trim() : "";
-        if (key.isEmpty()) { toast("Digite a chave"); return; }
-        session.saveSerperKey(key);
-        SerperApiService.getInstance().setApiKey(key);
-        executor.execute(() -> {
-            try {
-                SupabaseService.getInstance().saveApiCredentials(
-                        currentUser.getAccessToken(), currentUser.getId(), key);
-            } catch (Exception ignored) {}
-        });
-        etSerperKey.setText("");
-        toast("✓ Chave salva com sucesso!");
-    }
-
     private void showUserMenu() {
         new AlertDialog.Builder(this, R.style.OwlyDialog)
                 .setTitle(currentUser.getDisplayEmail())
@@ -492,6 +446,5 @@ public class MainActivity extends AppCompatActivity
         }
     }
 
-    @Override protected void onResume() { super.onResume(); initSerperKey(); }
     @Override protected void onDestroy() { super.onDestroy(); executor.shutdown(); }
 }

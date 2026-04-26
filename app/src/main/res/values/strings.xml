@@ -3,11 +3,6 @@
     <string name="app_name">Owly</string>
     <string name="app_tagline">Rastreador de Preços</string>
     <string name="logged_as">LOGADO COMO</string>
-    <string name="api_settings">Configurações API</string>
-    <string name="serper_key_label">Serper API Key (Busca na Internet)</string>
-    <string name="serper_key_hint">Digite sua chave Serper API</string>
-    <string name="serper_key_desc">Usada para buscar preços históricos de promoções na internet</string>
-    <string name="save_keys">Salvar Chaves</string>
     <string name="add_product_title">Adicionar Produto</string>
     <string name="product_name_label">Nome do Produto</string>
     <string name="product_name_hint">Ex: PlayStation 5, iPhone 15, etc.</string>

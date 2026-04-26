@@ -17,7 +17,7 @@ import com.owly.pricetracker.R;
 import com.owly.pricetracker.activities.ProductDetailActivity;
 import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.models.Product;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 
 public class NotificationHelper {
     public static final String CHANNEL_SALES_ID = "owly_sales";
@@ -72,7 +72,7 @@ public class NotificationHelper {
         String account = snap.getSourceAccount() != null ? snap.getSourceAccount() : context.getString(R.string.notification_sale_default_source);
         String body = context.getString(
                 R.string.notification_sale_body,
-                SerperApiService.formatPrice(snap.getPrice()),
+                GrokSearchService.formatPrice(snap.getPrice()),
                 account);
 
         NotificationCompat.Builder builder = new NotificationCompat.Builder(context, CHANNEL_SALES_ID)

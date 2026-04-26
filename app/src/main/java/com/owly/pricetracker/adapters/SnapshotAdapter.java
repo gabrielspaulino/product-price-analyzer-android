@@ -12,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView;
 
 import com.owly.pricetracker.R;
 import com.owly.pricetracker.models.PriceSnapshot;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -52,7 +52,7 @@ public class SnapshotAdapter extends RecyclerView.Adapter<SnapshotAdapter.VH> {
 
         void bind(PriceSnapshot s) {
             // Price
-            tvPrice.setText(SerperApiService.formatPrice(s.getPrice()));
+            tvPrice.setText(GrokSearchService.formatPrice(s.getPrice()));
 
             // Source account
             String src = s.getSourceAccount();

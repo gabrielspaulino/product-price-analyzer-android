@@ -14,7 +14,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.textfield.TextInputEditText;
 import com.owly.pricetracker.R;
 import com.owly.pricetracker.models.Product;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -76,7 +76,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
 
             // Price
             if (p.getCurrentPrice() != null && p.getCurrentPrice() > 0) {
-                tvPrice.setText(SerperApiService.formatPrice(p.getCurrentPrice()));
+                tvPrice.setText(GrokSearchService.formatPrice(p.getCurrentPrice()));
             } else {
                 tvPrice.setText("—");
             }
@@ -91,7 +91,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
 
             // Target indicator
             if (p.getTargetPrice() != null) {
-                String label = "Alvo: " + SerperApiService.formatPrice(p.getTargetPrice());
+                String label = "Alvo: " + GrokSearchService.formatPrice(p.getTargetPrice());
                 if (p.isTargetReached()) label += " ✓ Atingido!";
                 tvTargetIndicator.setText(label);
                 tvTargetIndicator.setTextColor(itemView.getContext().getResources()
@@ -135,7 +135,7 @@ public class ProductAdapter extends RecyclerView.Adapter<ProductAdapter.VH> {
 
             // Target price hint is set in XML; clear it if target exists
             if (p.getTargetPrice() != null) {
-                etTargetPrice.setHint(SerperApiService.formatPrice(p.getTargetPrice()));
+                etTargetPrice.setHint(GrokSearchService.formatPrice(p.getTargetPrice()));
             } else {
                 etTargetPrice.setHint("Preço alvo (R$)");
             }

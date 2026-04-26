@@ -18,7 +18,7 @@ import com.owly.pricetracker.R;
 import com.owly.pricetracker.adapters.SnapshotAdapter;
 import com.owly.pricetracker.models.PriceSnapshot;
 import com.owly.pricetracker.models.User;
-import com.owly.pricetracker.services.SerperApiService;
+import com.owly.pricetracker.services.GrokSearchService;
 import com.owly.pricetracker.services.SupabaseService;
 import com.owly.pricetracker.utils.NonScrollableLinearLayoutManager;
 import com.owly.pricetracker.utils.SessionManager;
@@ -115,7 +115,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         tvProductName.setText(productName);
 
         if (currentPrice > 0) {
-            tvCurrentPrice.setText(SerperApiService.formatPrice(currentPrice));
+            tvCurrentPrice.setText(GrokSearchService.formatPrice(currentPrice));
             tvStatusBadge.setText("Atualizado");
             tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
         } else {
@@ -130,7 +130,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         }
 
         if (targetPrice > 0) {
-            tvTargetCurrent.setText("Preço alvo atual: " + SerperApiService.formatPrice(targetPrice));
+            tvTargetCurrent.setText("Preço alvo atual: " + GrokSearchService.formatPrice(targetPrice));
             tvTargetCurrent.setVisibility(View.VISIBLE);
         }
     }
@@ -156,8 +156,8 @@ public class ProductDetailActivity extends AppCompatActivity {
     }
 
     private void analyzeNow() {
-        if (!SerperApiService.getInstance().hasApiKey()) {
-            toast("Configure a chave Serper em Configurações");
+        if (!GrokSearchService.getInstance().hasApiKey()) {
+            toast("Chave da API Grok não configurada");
             return;
         }
         btnAnalyze.setEnabled(false);
@@ -168,7 +168,7 @@ public class ProductDetailActivity extends AppCompatActivity {
             try {
                 // Twitter-only search, matching the web app behaviour
                 List<PriceSnapshot> all = new ArrayList<>(
-                        SerperApiService.getInstance().searchTwitterPrices(productName, lastUpdated));
+                        GrokSearchService.getInstance().searchTwitterPrices(productName, lastUpdated));
 
                 double lowest = Double.MAX_VALUE;
                 for (PriceSnapshot s : all) {
@@ -191,7 +191,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                     btnAnalyze.setEnabled(true);
                     btnAnalyze.setText("Analisar Agora");
                     if (finalLowest < Double.MAX_VALUE) {
-                        tvCurrentPrice.setText(SerperApiService.formatPrice(finalLowest));
+                        tvCurrentPrice.setText(GrokSearchService.formatPrice(finalLowest));
                         tvStatusBadge.setText("Atualizado");
                         tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
                         tvLastUpdated.setText("Atualizado: agora");
@@ -227,7 +227,7 @@ public class ProductDetailActivity extends AppCompatActivity {
                 double finalTarget = newTarget;
                 runOnUiThread(() -> {
                     targetPrice = finalTarget;
-                    tvTargetCurrent.setText("Preço alvo: " + SerperApiService.formatPrice(finalTarget));
+                    tvTargetCurrent.setText("Preço alvo: " + GrokSearchService.formatPrice(finalTarget));
                     tvTargetCurrent.setVisibility(View.VISIBLE);
                     etTargetPrice.setText("");
                     toast("Preço alvo salvo!");
