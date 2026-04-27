@@ -5,6 +5,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.ArrayAdapter;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
@@ -17,9 +19,12 @@ import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 
-import android.widget.ArrayAdapter;
-import android.widget.AutoCompleteTextView;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.promo.tracker.R;
@@ -29,7 +34,6 @@ import com.promo.tracker.billing.SubscriptionManager;
 import com.promo.tracker.models.PriceSnapshot;
 import com.promo.tracker.models.Product;
 import com.promo.tracker.models.User;
-import com.promo.tracker.services.GrokSearchService;
 import com.promo.tracker.services.SupabaseService;
 import com.promo.tracker.utils.LogoLoader;
 import com.promo.tracker.utils.NonScrollableLinearLayoutManager;
@@ -38,6 +42,8 @@ import com.promo.tracker.utils.NotificationPrefs;
 import com.promo.tracker.utils.ProductAnalysisManager;
 import com.promo.tracker.utils.PushTokenManager;
 import com.promo.tracker.utils.SessionManager;
+import com.promo.tracker.work.OnDemandAnalysisWorker;
+
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
@@ -112,7 +118,10 @@ public class MainActivity extends AppCompatActivity
     @Override
     protected void onResume() {
         super.onResume();
-        if (currentUser != null) refreshSubscription();
+        if (currentUser != null) {
+            refreshSubscription();
+            loadProducts();
+        }
     }
 
     private void refreshSubscription() {
@@ -341,11 +350,9 @@ public class MainActivity extends AppCompatActivity
             return;
         }
         markProductLoading(product);
-        executor.execute(() -> {
-            subscriptionManager.recordAnalysis(
-                    currentUser.getAccessToken(), currentUser.getId());
-            runAnalysisInBackground(product);
-        });
+        executor.execute(() -> subscriptionManager.recordAnalysis(
+                currentUser.getAccessToken(), currentUser.getId()));
+        enqueueAnalysis(product);
     }
 
     private void analyzeAll() {
@@ -356,41 +363,61 @@ public class MainActivity extends AppCompatActivity
             return;
         }
         toast("Analisando produto(s)…");
-        executor.execute(() -> {
-            List<Product> snapshot = new ArrayList<>(products);
-            for (Product product : snapshot) {
-                if (!subscriptionManager.canAnalyze()) {
-                    runOnUiThread(() -> toast("Limite de análises atingido"));
-                    break;
-                }
-                subscriptionManager.recordAnalysis(
-                        currentUser.getAccessToken(), currentUser.getId());
-                markProductLoading(product);
-                runAnalysisInBackground(product);
+        for (Product product : new ArrayList<>(products)) {
+            if (!subscriptionManager.canAnalyze()) {
+                toast("Limite de análises atingido");
+                break;
             }
-        });
+            markProductLoading(product);
+            executor.execute(() -> subscriptionManager.recordAnalysis(
+                    currentUser.getAccessToken(), currentUser.getId()));
+            enqueueAnalysis(product);
+        }
+    }
+
+    private void enqueueAnalysis(Product product) {
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(OnDemandAnalysisWorker.class)
+                .setInputData(OnDemandAnalysisWorker.buildInputData(product))
+                .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build())
+                .build();
+
+        WorkManager.getInstance(this).enqueue(request);
+        WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.getId())
+                .observe(this, workInfo -> {
+                    if (workInfo == null) return;
+                    if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+                        product.setAnalyzing(false);
+                        product.setStatus("success");
+                        double price = workInfo.getOutputData().getDouble(
+                                OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
+                        if (price > 0) {
+                            product.setCurrentPrice(price);
+                            product.setLastUpdated(java.time.Instant.now().toString());
+                        }
+                        int idx = products.indexOf(product);
+                        if (idx >= 0) adapter.notifyItemChanged(idx);
+                        if (product.isTargetReached()) {
+                            toast(product.getName() + " atingiu o preço alvo!");
+                        }
+                    } else if (workInfo.getState() == WorkInfo.State.FAILED) {
+                        product.setAnalyzing(false);
+                        product.setStatus("error");
+                        int idx = products.indexOf(product);
+                        if (idx >= 0) adapter.notifyItemChanged(idx);
+                        String error = workInfo.getOutputData().getString(
+                                OnDemandAnalysisWorker.KEY_RESULT_ERROR);
+                        toast("Erro: " + (error != null ? error : "Erro inesperado"));
+                    }
+                });
     }
 
     private void markProductLoading(Product product) {
-        runOnUiThread(() -> {
-            int idx = products.indexOf(product);
-            product.setAnalyzing(true);
-            product.setStatus("loading");
-            if (idx >= 0) adapter.notifyItemChanged(idx);
-        });
-    }
-
-    private void runAnalysisInBackground(Product product) {
-        ProductAnalysisManager.Result result = analysisManager.analyzeProduct(product);
-        runOnUiThread(() -> {
-            int idx = products.indexOf(product);
-            if (idx >= 0) adapter.notifyItemChanged(idx);
-            if (!result.success) {
-                toast("Erro: " + (result.errorMessage != null ? result.errorMessage : "Erro inesperado"));
-            } else if (product.isTargetReached()) {
-                toast("🎯 " + product.getName() + " atingiu o preço alvo!");
-            }
-        });
+        int idx = products.indexOf(product);
+        product.setAnalyzing(true);
+        product.setStatus("loading");
+        if (idx >= 0) adapter.notifyItemChanged(idx);
     }
 
     @Override public void onAnalyze(Product p) { analyze(p); }

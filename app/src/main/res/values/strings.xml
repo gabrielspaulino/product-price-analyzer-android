@@ -17,6 +17,7 @@
     <string name="idle_label">Aguardando</string>
     <string name="error_label">Erro</string>
     <string name="price_history">Histórico de Preços</string>
+    <string name="chart_title">Evolução de Preço</string>
     <string name="no_history">Nenhum histórico. Clique em Analisar.</string>
     <string name="logout">Sair</string>
     <string name="settings">Configurações</string>
