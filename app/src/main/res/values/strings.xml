@@ -59,6 +59,10 @@
     <string name="paywall_upgrade">Assinar Premium</string>
     <string name="paywall_cancel">Agora não</string>
 
+    <!-- Google SSO -->
+    <string name="google_sign_in">Entrar com Google</string>
+    <string name="or_divider">ou</string>
+
     <!-- Subscription screen -->
     <string name="subscription_title">Assinatura</string>
     <string name="subscription_current_plan">Plano atual: %s</string>
@@ -70,6 +74,5 @@
     <string name="subscription_benefits_title">Vantagens do Premium</string>
     <string name="subscription_benefit_products">Produtos monitorados ilimitados</string>
     <string name="subscription_benefit_analyses">Análises semanais ilimitadas</string>
-    <string name="subscription_benefit_priority">Notificações prioritárias de promoções</string>
     <string name="subscription_benefit_support">Suporte prioritário</string>
 </resources>

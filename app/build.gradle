@@ -37,6 +37,7 @@ android {
         // ── Inject Supabase values from local.properties ──
         buildConfigField "String", "SUPABASE_URL", "\"${localProperties.getProperty('SUPABASE_URL', '')}\""
         buildConfigField "String", "SUPABASE_ANON_KEY", "\"${localProperties.getProperty('SUPABASE_ANON_KEY', '')}\""
+        buildConfigField "String", "GOOGLE_WEB_CLIENT_ID", "\"${localProperties.getProperty('GOOGLE_WEB_CLIENT_ID', '')}\""
         buildConfigField "boolean", "FIREBASE_ENABLED", "${hasGoogleServicesConfig}"
     }
 
@@ -75,6 +76,7 @@ dependencies {
     implementation platform('com.google.firebase:firebase-bom:33.1.0')
     implementation 'com.google.firebase:firebase-messaging'
     implementation 'com.google.android.gms:play-services-base:18.5.0'
+    implementation 'com.google.android.gms:play-services-auth:21.3.0'
 
     // HTTP
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'

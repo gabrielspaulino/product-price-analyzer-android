@@ -85,6 +85,23 @@ public class SupabaseService {
         }
     }
 
+    public User signInWithIdToken(String idToken) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("provider", "google");
+        body.addProperty("id_token", idToken);
+        Request req = new Request.Builder()
+                .url(baseUrl + "/auth/v1/token?grant_type=id_token")
+                .post(body(body))
+                .addHeader("apikey", anonKey)
+                .addHeader("Content-Type", "application/json")
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            String rb = r.body().string();
+            if (!r.isSuccessful()) throw new IOException(extractError(rb, "Erro ao entrar com Google"));
+            return parseSession(rb);
+        }
+    }
+
     public User refreshToken(String refreshToken) throws IOException {
         JsonObject body = new JsonObject();
         body.addProperty("refresh_token", refreshToken);

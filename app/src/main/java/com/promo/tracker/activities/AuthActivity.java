@@ -2,15 +2,25 @@ package com.promo.tracker.activities;
 
 import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
 import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.appcompat.app.AppCompatActivity;
 
+import com.google.android.gms.auth.api.signin.GoogleSignIn;
+import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
+import com.google.android.gms.auth.api.signin.GoogleSignInClient;
+import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
+import com.google.android.gms.common.api.ApiException;
+import com.google.android.gms.tasks.Task;
 import com.google.android.material.textfield.TextInputEditText;
+import com.promo.tracker.BuildConfig;
 import com.promo.tracker.R;
 import com.promo.tracker.utils.LogoLoader;
 import com.promo.tracker.models.User;
@@ -32,6 +42,28 @@ public class AuthActivity extends AppCompatActivity {
     private boolean isLogin = true;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
+    private GoogleSignInClient googleSignInClient;
+    private final ActivityResultLauncher<Intent> googleSignInLauncher =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), result -> {
+                Task<GoogleSignInAccount> task = GoogleSignIn.getSignedInAccountFromIntent(result.getData());
+                try {
+                    GoogleSignInAccount account = task.getResult(ApiException.class);
+                    String idToken = account.getIdToken();
+                    if (idToken != null) {
+                        signInWithGoogle(idToken);
+                    } else {
+                        showError("Não foi possível obter o token do Google");
+                        setLoading(false);
+                    }
+                } catch (ApiException e) {
+                    Log.e("AuthActivity", "Google sign-in failed: " + e.getStatusCode(), e);
+                    setLoading(false);
+                    if (e.getStatusCode() != 12501) {
+                        showError("Erro Google (código " + e.getStatusCode() + "): " + e.getMessage());
+                    }
+                }
+            });
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -51,6 +83,20 @@ public class AuthActivity extends AppCompatActivity {
         tvError              = findViewById(R.id.tv_error);
         progressBar          = findViewById(R.id.progress_bar);
         layoutConfirmPassword = findViewById(R.id.layout_confirm_password);
+
+        GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
+                .requestIdToken(BuildConfig.GOOGLE_WEB_CLIENT_ID)
+                .requestEmail()
+                .build();
+        googleSignInClient = GoogleSignIn.getClient(this, gso);
+
+        Button btnGoogle = findViewById(R.id.btn_google);
+        btnGoogle.setOnClickListener(v -> {
+            setLoading(true);
+            tvError.setVisibility(View.GONE);
+            googleSignInClient.signOut().addOnCompleteListener(t ->
+                    googleSignInLauncher.launch(googleSignInClient.getSignInIntent()));
+        });
 
         btnPrimary.setOnClickListener(v -> submit());
         btnToggle.setOnClickListener(v -> { isLogin = !isLogin; updateUi(); tvError.setVisibility(View.GONE); });
@@ -101,6 +147,23 @@ public class AuthActivity extends AppCompatActivity {
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> { setLoading(false); showError(e.getMessage()); });
+            }
+        });
+    }
+
+    private void signInWithGoogle(String idToken) {
+        executor.execute(() -> {
+            try {
+                User user = SupabaseService.getInstance().signInWithIdToken(idToken);
+                SessionManager.getInstance(this).saveUser(user);
+                PushTokenManager.syncToken(this, user);
+                runOnUiThread(() -> {
+                    startActivity(new Intent(this, MainActivity.class));
+                    finish();
+                });
+            } catch (Exception e) {
+                Log.e("AuthActivity", "Google sign-in Supabase error", e);
+                runOnUiThread(() -> { setLoading(false); showError("Google SSO: " + e.getMessage()); });
             }
         });
     }
