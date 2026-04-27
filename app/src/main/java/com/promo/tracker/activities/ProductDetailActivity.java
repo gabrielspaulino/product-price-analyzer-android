@@ -16,6 +16,7 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import com.promo.tracker.R;
 import com.promo.tracker.adapters.SnapshotAdapter;
+import com.promo.tracker.billing.SubscriptionManager;
 import com.promo.tracker.models.PriceSnapshot;
 import com.promo.tracker.models.User;
 import com.promo.tracker.services.GrokSearchService;
@@ -55,6 +56,7 @@ public class ProductDetailActivity extends AppCompatActivity {
 
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private User currentUser;
+    private SubscriptionManager subscriptionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +64,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         setContentView(R.layout.activity_product_detail);
 
         currentUser = SessionManager.getInstance(this).getUser();
+        subscriptionManager = SubscriptionManager.getInstance();
 
         productId    = getIntent().getStringExtra("product_id");
         productName  = getIntent().getStringExtra("product_name");
@@ -156,11 +159,17 @@ public class ProductDetailActivity extends AppCompatActivity {
     }
 
     private void analyzeNow() {
+        if (!subscriptionManager.canAnalyze()) {
+            showUpgradeDialog();
+            return;
+        }
         btnAnalyze.setEnabled(false);
         btnAnalyze.setText("Analisando…");
         progressAnalyze.setVisibility(View.VISIBLE);
 
         executor.execute(() -> {
+            subscriptionManager.recordAnalysis(
+                    currentUser.getAccessToken(), currentUser.getId());
             try {
                 List<PriceSnapshot> all = new ArrayList<>(
                         GrokSearchService.getInstance().searchTwitterPrices(productName, lastUpdated, currentUser.getAccessToken()));
@@ -343,6 +352,37 @@ public class ProductDetailActivity extends AppCompatActivity {
             SimpleDateFormat out = new SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault());
             return out.format(date);
         } catch (Exception e) { return iso.length() > 10 ? iso.substring(0, 10) : iso; }
+    }
+
+    private void showUpgradeDialog() {
+        new androidx.appcompat.app.AlertDialog.Builder(this, R.style.PromoTrackerDialog)
+                .setTitle(R.string.paywall_title)
+                .setMessage(getString(R.string.paywall_msg_analyses,
+                        SubscriptionManager.FREE_MAX_WEEKLY_ANALYSES))
+                .setPositiveButton(R.string.paywall_upgrade, (d, w) -> startUpgrade())
+                .setNegativeButton(R.string.paywall_cancel, null)
+                .show();
+    }
+
+    private void startUpgrade() {
+        progressAnalyze.setVisibility(View.VISIBLE);
+        executor.execute(() -> {
+            try {
+                String url = subscriptionManager.getCheckoutUrl(
+                        currentUser.getAccessToken(), currentUser.getId());
+                runOnUiThread(() -> {
+                    progressAnalyze.setVisibility(View.GONE);
+                    startActivity(new android.content.Intent(
+                            android.content.Intent.ACTION_VIEW,
+                            android.net.Uri.parse(url)));
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    progressAnalyze.setVisibility(View.GONE);
+                    toast("Erro: " + e.getMessage());
+                });
+            }
+        });
     }
 
     private void toast(String msg) { Toast.makeText(this, msg, Toast.LENGTH_SHORT).show(); }

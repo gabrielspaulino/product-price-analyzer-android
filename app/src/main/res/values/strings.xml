@@ -51,4 +51,25 @@
     <string name="notification_permission_message">Permita que o PromoTracker avise sempre que produtos da sua lista ganharam uma nova promoção.</string>
     <string name="notification_permission_allow">Permitir</string>
     <string name="notification_permission_cancel">Cancelar</string>
+
+    <!-- Paywall / Subscription -->
+    <string name="paywall_title">Limite do plano gratuito</string>
+    <string name="paywall_msg_products">O plano gratuito permite até %d produtos monitorados. Assine o Premium para monitorar produtos ilimitados.</string>
+    <string name="paywall_msg_analyses">O plano gratuito permite até %d análises por semana. Assine o Premium para análises ilimitadas.</string>
+    <string name="paywall_upgrade">Assinar Premium</string>
+    <string name="paywall_cancel">Agora não</string>
+
+    <!-- Subscription screen -->
+    <string name="subscription_title">Assinatura</string>
+    <string name="subscription_current_plan">Plano atual: %s</string>
+    <string name="subscription_free_name">Gratuito</string>
+    <string name="subscription_premium_name">Premium</string>
+    <string name="subscription_premium_price">R$ 19,90/mês</string>
+    <string name="subscription_subscribe_btn">Assinar Premium</string>
+    <string name="subscription_manage_btn">Gerenciar Assinatura</string>
+    <string name="subscription_benefits_title">Vantagens do Premium</string>
+    <string name="subscription_benefit_products">Produtos monitorados ilimitados</string>
+    <string name="subscription_benefit_analyses">Análises semanais ilimitadas</string>
+    <string name="subscription_benefit_priority">Notificações prioritárias de promoções</string>
+    <string name="subscription_benefit_support">Suporte prioritário</string>
 </resources>

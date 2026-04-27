@@ -24,6 +24,7 @@ import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.promo.tracker.R;
 import com.promo.tracker.adapters.ProductAdapter;
+import com.promo.tracker.billing.SubscriptionManager;
 import com.promo.tracker.models.Product;
 import com.promo.tracker.models.User;
 import com.promo.tracker.services.GrokSearchService;
@@ -69,6 +70,7 @@ public class MainActivity extends AppCompatActivity
     private NotificationPrefs notificationPrefs;
     private ActivityResultLauncher<String> notificationPermissionLauncher;
     private ProductAnalysisManager analysisManager;
+    private SubscriptionManager subscriptionManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -79,6 +81,7 @@ public class MainActivity extends AppCompatActivity
         currentUser = session.getUser();
         if (currentUser == null) { goToAuth(); return; }
 
+        subscriptionManager = SubscriptionManager.getInstance();
         bindViews();
         setupHeader();
         setupAddProduct();
@@ -86,6 +89,18 @@ public class MainActivity extends AppCompatActivity
         initNotificationSupport();
         analysisManager = new ProductAnalysisManager(this, currentUser);
         loadProducts();
+        refreshSubscription();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if (currentUser != null) refreshSubscription();
+    }
+
+    private void refreshSubscription() {
+        executor.execute(() -> subscriptionManager.refresh(
+                currentUser.getAccessToken(), currentUser.getId()));
     }
 
     private void bindViews() {
@@ -252,6 +267,11 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void addProduct(String name, Double targetPrice) {
+        if (!subscriptionManager.canAddProduct(products.size())) {
+            showUpgradeDialog(getString(R.string.paywall_msg_products,
+                    SubscriptionManager.FREE_MAX_WATCHED_PRODUCTS));
+            return;
+        }
         progressBar.setVisibility(View.VISIBLE);
         executor.execute(() -> {
             try {
@@ -292,16 +312,36 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void analyze(Product product) {
+        if (!subscriptionManager.canAnalyze()) {
+            showUpgradeDialog(getString(R.string.paywall_msg_analyses,
+                    SubscriptionManager.FREE_MAX_WEEKLY_ANALYSES));
+            return;
+        }
         markProductLoading(product);
-        executor.execute(() -> runAnalysisInBackground(product));
+        executor.execute(() -> {
+            subscriptionManager.recordAnalysis(
+                    currentUser.getAccessToken(), currentUser.getId());
+            runAnalysisInBackground(product);
+        });
     }
 
     private void analyzeAll() {
         if (products.isEmpty()) { toast("Nenhum produto para analisar"); return; }
-        toast("Analisando " + products.size() + " produto(s)…");
+        if (!subscriptionManager.canAnalyze()) {
+            showUpgradeDialog(getString(R.string.paywall_msg_analyses,
+                    SubscriptionManager.FREE_MAX_WEEKLY_ANALYSES));
+            return;
+        }
+        toast("Analisando produto(s)…");
         executor.execute(() -> {
             List<Product> snapshot = new ArrayList<>(products);
             for (Product product : snapshot) {
+                if (!subscriptionManager.canAnalyze()) {
+                    runOnUiThread(() -> toast("Limite de análises atingido"));
+                    break;
+                }
+                subscriptionManager.recordAnalysis(
+                        currentUser.getAccessToken(), currentUser.getId());
                 markProductLoading(product);
                 runAnalysisInBackground(product);
             }
@@ -393,8 +433,9 @@ public class MainActivity extends AppCompatActivity
     private void showUserMenu() {
         new AlertDialog.Builder(this, R.style.PromoTrackerDialog)
                 .setTitle(currentUser.getDisplayEmail())
-                .setItems(new String[]{"Configurações", "Sair"}, (d, which) -> {
-                    if (which == 0) startActivity(new Intent(this, SettingsActivity.class));
+                .setItems(new String[]{"Assinatura", "Configurações", "Sair"}, (d, which) -> {
+                    if (which == 0) startActivity(new Intent(this, SubscriptionActivity.class));
+                    else if (which == 1) startActivity(new Intent(this, SettingsActivity.class));
                     else logout();
                 }).show();
     }
@@ -410,6 +451,35 @@ public class MainActivity extends AppCompatActivity
         layoutEmpty.setVisibility(empty ? View.VISIBLE : View.GONE);
         recyclerProducts.setVisibility(empty ? View.GONE : View.VISIBLE);
         if (!empty) layoutTrending.setVisibility(View.GONE);
+    }
+
+    private void showUpgradeDialog(String message) {
+        new AlertDialog.Builder(this, R.style.PromoTrackerDialog)
+                .setTitle(R.string.paywall_title)
+                .setMessage(message)
+                .setPositiveButton(R.string.paywall_upgrade, (d, w) -> startUpgrade())
+                .setNegativeButton(R.string.paywall_cancel, null)
+                .show();
+    }
+
+    private void startUpgrade() {
+        progressBar.setVisibility(View.VISIBLE);
+        executor.execute(() -> {
+            try {
+                String url = subscriptionManager.getCheckoutUrl(
+                        currentUser.getAccessToken(), currentUser.getId());
+                runOnUiThread(() -> {
+                    progressBar.setVisibility(View.GONE);
+                    startActivity(new Intent(Intent.ACTION_VIEW,
+                            android.net.Uri.parse(url)));
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    progressBar.setVisibility(View.GONE);
+                    toast("Erro: " + e.getMessage());
+                });
+            }
+        });
     }
 
     private void goToAuth() {

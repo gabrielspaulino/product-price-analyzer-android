@@ -46,6 +46,11 @@
             android:exported="false"
             android:parentActivityName=".activities.MainActivity"/>
 
+        <activity
+            android:name=".activities.SubscriptionActivity"
+            android:exported="false"
+            android:parentActivityName=".activities.MainActivity"/>
+
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
             android:value="promo_sales" />

@@ -1,4 +1,5 @@
 -keep class com.promo.tracker.models.** { *; }
+-keep class com.promo.tracker.billing.** { *; }
 -dontwarn okhttp3.**
 -dontwarn okio.**
 -keep class okhttp3.** { *; }

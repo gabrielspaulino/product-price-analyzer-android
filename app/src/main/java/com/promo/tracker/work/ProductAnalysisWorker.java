@@ -6,6 +6,7 @@ import androidx.annotation.NonNull;
 import androidx.work.Worker;
 import androidx.work.WorkerParameters;
 
+import com.promo.tracker.billing.SubscriptionManager;
 import com.promo.tracker.models.Product;
 import com.promo.tracker.models.User;
 import com.promo.tracker.services.SupabaseService;
@@ -28,6 +29,10 @@ public class ProductAnalysisWorker extends Worker {
         SessionManager session = SessionManager.getInstance(context);
         User currentUser = getRefreshedUser(session);
         if (currentUser == null) return Result.success();
+
+        SubscriptionManager sm = SubscriptionManager.getInstance();
+        sm.refresh(currentUser.getAccessToken(), currentUser.getId());
+        if (!sm.isPremium()) return Result.success();
 
         NotificationHelper.createNotificationChannel(context);
 

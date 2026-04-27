@@ -424,6 +424,57 @@ public class SupabaseService {
         }
     }
 
+    // ─── Subscriptions ─────────────────────────────────────────────────────
+
+    public String getUserPlanSlug(String token, String userId) throws IOException {
+        String url = baseUrl + "/rest/v1/user_subscriptions"
+                + "?user_id=eq." + userId
+                + "&status=eq.active"
+                + "&select=subscription_plans(slug)";
+        try (Response r = http.newCall(authGet(token, url)).execute()) {
+            String rb = r.body().string();
+            if (!r.isSuccessful()) return "free";
+            JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
+            if (arr.size() == 0) return "free";
+            JsonObject sub = arr.get(0).getAsJsonObject();
+            if (!sub.has("subscription_plans") || sub.get("subscription_plans").isJsonNull())
+                return "free";
+            JsonObject plan = sub.getAsJsonObject("subscription_plans");
+            String slug = str(plan, "slug");
+            return slug != null ? slug : "free";
+        }
+    }
+
+    public int getWeeklyAnalysisCount(String token, String userId) throws IOException {
+        String weekAgo = Instant.now()
+                .minus(7, java.time.temporal.ChronoUnit.DAYS).toString();
+        String encoded = URLEncoder.encode(weekAgo, StandardCharsets.UTF_8.toString());
+        String url = baseUrl + "/rest/v1/analysis_log"
+                + "?user_id=eq." + userId
+                + "&analyzed_at=gte." + encoded
+                + "&select=id";
+        try (Response r = http.newCall(authGet(token, url)).execute()) {
+            String rb = r.body().string();
+            if (!r.isSuccessful()) return 0;
+            return JsonParser.parseString(rb).getAsJsonArray().size();
+        }
+    }
+
+    public void logAnalysis(String token, String userId) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("user_id", userId);
+
+        Request req = new Request.Builder()
+                .url(baseUrl + "/rest/v1/analysis_log")
+                .post(body(body))
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer " + token)
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) Log.e(TAG, "logAnalysis failed: " + r.code());
+        }
+    }
+
     // ─── Helpers ─────────────────────────────────────────────────────────────
 
     private Request authGet(String token, String url) {
