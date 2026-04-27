@@ -11,6 +11,11 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.recyclerview.widget.RecyclerView;
+import androidx.work.Constraints;
+import androidx.work.NetworkType;
+import androidx.work.OneTimeWorkRequest;
+import androidx.work.WorkInfo;
+import androidx.work.WorkManager;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
@@ -18,11 +23,13 @@ import com.promo.tracker.R;
 import com.promo.tracker.adapters.SnapshotAdapter;
 import com.promo.tracker.billing.SubscriptionManager;
 import com.promo.tracker.models.PriceSnapshot;
+import com.promo.tracker.models.Product;
 import com.promo.tracker.models.User;
 import com.promo.tracker.services.GrokSearchService;
 import com.promo.tracker.services.SupabaseService;
 import com.promo.tracker.utils.NonScrollableLinearLayoutManager;
 import com.promo.tracker.utils.SessionManager;
+import com.promo.tracker.work.OnDemandAnalysisWorker;
 
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -167,53 +174,50 @@ public class ProductDetailActivity extends AppCompatActivity {
         btnAnalyze.setText("Analisando…");
         progressAnalyze.setVisibility(View.VISIBLE);
 
-        executor.execute(() -> {
-            subscriptionManager.recordAnalysis(
-                    currentUser.getAccessToken(), currentUser.getId());
-            try {
-                List<PriceSnapshot> all = new ArrayList<>(
-                        GrokSearchService.getInstance().searchTwitterPrices(productName, lastUpdated, currentUser.getAccessToken()));
+        executor.execute(() -> subscriptionManager.recordAnalysis(
+                currentUser.getAccessToken(), currentUser.getId()));
 
-                double lowest = Double.MAX_VALUE;
-                for (PriceSnapshot s : all) {
-                    s.setProductId(productId);
-                    SupabaseService.getInstance().saveSnapshot(currentUser.getAccessToken(), s);
-                    if (s.getPrice() < lowest) lowest = s.getPrice();
-                }
-                if (lowest < Double.MAX_VALUE) {
-                    SupabaseService.getInstance().updateProductPrice(
-                            currentUser.getAccessToken(), productId, lowest);
-                    currentPrice = lowest;
-                }
+        Product product = new Product();
+        product.setId(productId);
+        product.setName(productName);
+        product.setLastUpdated(lastUpdated);
 
-                List<PriceSnapshot> refreshed = SupabaseService.getInstance()
-                        .getSnapshots(currentUser.getAccessToken(), productId);
+        OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(OnDemandAnalysisWorker.class)
+                .setInputData(OnDemandAnalysisWorker.buildInputData(product))
+                .setConstraints(new Constraints.Builder()
+                        .setRequiredNetworkType(NetworkType.CONNECTED)
+                        .build())
+                .build();
 
-                double finalLowest = lowest;
-                runOnUiThread(() -> {
-                    progressAnalyze.setVisibility(View.GONE);
-                    btnAnalyze.setEnabled(true);
-                    btnAnalyze.setText("Analisar Agora");
-                    if (finalLowest < Double.MAX_VALUE) {
-                        tvCurrentPrice.setText(GrokSearchService.formatPrice(finalLowest));
-                        tvStatusBadge.setText("Atualizado");
-                        tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
-                        tvLastUpdated.setText("Atualizado: agora");
-                        tvLastUpdated.setVisibility(View.VISIBLE);
+        WorkManager.getInstance(this).enqueue(request);
+        WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.getId())
+                .observe(this, workInfo -> {
+                    if (workInfo == null) return;
+                    if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+                        double price = workInfo.getOutputData().getDouble(
+                                OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
+                        if (price > 0) {
+                            currentPrice = price;
+                            tvCurrentPrice.setText(GrokSearchService.formatPrice(price));
+                            tvStatusBadge.setText("Atualizado");
+                            tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
+                            tvLastUpdated.setText("Atualizado: agora");
+                            tvLastUpdated.setVisibility(View.VISIBLE);
+                        }
+                        progressAnalyze.setVisibility(View.GONE);
+                        btnAnalyze.setEnabled(true);
+                        btnAnalyze.setText("Analisar Agora");
+                        loadHistory();
+                        toast("Análise concluída!");
+                    } else if (workInfo.getState() == WorkInfo.State.FAILED) {
+                        progressAnalyze.setVisibility(View.GONE);
+                        btnAnalyze.setEnabled(true);
+                        btnAnalyze.setText("Analisar Agora");
+                        String error = workInfo.getOutputData().getString(
+                                OnDemandAnalysisWorker.KEY_RESULT_ERROR);
+                        toast("Erro: " + (error != null ? error : "Erro inesperado"));
                     }
-                    setSnapshots(refreshed);
-                    layoutEmptyHistory.setVisibility(snapshots.isEmpty() ? View.VISIBLE : View.GONE);
-                    toast("Análise concluída!");
                 });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    progressAnalyze.setVisibility(View.GONE);
-                    btnAnalyze.setEnabled(true);
-                    btnAnalyze.setText("Analisar Agora");
-                    toast("Erro: " + e.getMessage());
-                });
-            }
-        });
     }
 
     private void saveTarget() {
