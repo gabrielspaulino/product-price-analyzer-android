@@ -52,6 +52,13 @@
     <string name="notification_permission_allow">Permitir</string>
     <string name="notification_permission_cancel">Cancelar</string>
 
+    <!-- Latest deals -->
+    <string name="latest_deals_title">Últimas Ofertas</string>
+    <string name="period_today">Hoje</string>
+    <string name="period_week">Semana</string>
+    <string name="period_month">Mês</string>
+    <string name="no_deals_message">Nenhuma oferta encontrada neste período. Analise seus produtos para ver ofertas aqui.</string>
+
     <!-- Paywall / Subscription -->
     <string name="paywall_title">Limite do plano gratuito</string>
     <string name="paywall_msg_products">O plano gratuito permite até %d produtos monitorados. Assine o Premium para monitorar produtos ilimitados.</string>
