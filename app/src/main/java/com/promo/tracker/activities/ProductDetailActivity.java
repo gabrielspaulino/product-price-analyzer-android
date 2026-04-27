@@ -31,7 +31,18 @@ import com.promo.tracker.utils.NonScrollableLinearLayoutManager;
 import com.promo.tracker.utils.SessionManager;
 import com.promo.tracker.work.OnDemandAnalysisWorker;
 
+import com.github.mikephil.charting.charts.LineChart;
+import com.github.mikephil.charting.components.XAxis;
+import com.github.mikephil.charting.data.Entry;
+import com.github.mikephil.charting.data.LineData;
+import com.github.mikephil.charting.data.LineDataSet;
+import com.github.mikephil.charting.formatter.ValueFormatter;
+
 import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
@@ -57,6 +68,8 @@ public class ProductDetailActivity extends AppCompatActivity {
     private ProgressBar progressAnalyze, progressHistory;
     private LinearLayout layoutEmptyHistory;
     private RecyclerView recyclerHistory;
+    private LineChart chartPrice;
+    private View cardChart;
     private SnapshotAdapter snapshotAdapter;
     private final List<PriceSnapshot> snapshots = new ArrayList<>();
     private SortMode sortMode = SortMode.DATE;
@@ -104,6 +117,8 @@ public class ProductDetailActivity extends AppCompatActivity {
         progressHistory  = findViewById(R.id.progress_history);
         layoutEmptyHistory = findViewById(R.id.layout_empty_history);
         recyclerHistory  = findViewById(R.id.recycler_history);
+        chartPrice       = findViewById(R.id.chart_price);
+        cardChart        = findViewById(R.id.card_chart);
 
         snapshotAdapter = new SnapshotAdapter(snapshots);
         recyclerHistory.setLayoutManager(new NonScrollableLinearLayoutManager(this));
@@ -286,6 +301,7 @@ public class ProductDetailActivity extends AppCompatActivity {
         sortSnapshots();
         snapshotAdapter.notifyDataSetChanged();
         updateSortSelector();
+        updateChart(loaded);
     }
 
     private void sortSnapshots() {
@@ -346,6 +362,109 @@ public class ProductDetailActivity extends AppCompatActivity {
             ));
         }
         button.setEnabled(true);
+    }
+
+    private void updateChart(List<PriceSnapshot> data) {
+        List<PriceSnapshot> withDates = new ArrayList<>();
+        for (PriceSnapshot s : data) {
+            String dateStr = s.getTweetDate() != null ? s.getTweetDate() : s.getCapturedAt();
+            if (dateStr != null && !dateStr.isEmpty() && s.getPrice() > 0) {
+                withDates.add(s);
+            }
+        }
+
+        if (withDates.size() < 2) {
+            cardChart.setVisibility(View.GONE);
+            return;
+        }
+
+        withDates.sort((a, b) -> {
+            long ta = parseSortableDate(a.getTweetDate() != null ? a.getTweetDate() : a.getCapturedAt());
+            long tb = parseSortableDate(b.getTweetDate() != null ? b.getTweetDate() : b.getCapturedAt());
+            return Long.compare(ta, tb);
+        });
+
+        long baseTime = parseSortableDate(
+                withDates.get(0).getTweetDate() != null
+                        ? withDates.get(0).getTweetDate()
+                        : withDates.get(0).getCapturedAt());
+
+        List<Entry> entries = new ArrayList<>();
+        List<Long> timestamps = new ArrayList<>();
+        for (PriceSnapshot s : withDates) {
+            String dateStr = s.getTweetDate() != null ? s.getTweetDate() : s.getCapturedAt();
+            long millis = parseSortableDate(dateStr);
+            float dayOffset = (millis - baseTime) / (1000f * 60 * 60 * 24);
+            entries.add(new Entry(dayOffset, (float) s.getPrice()));
+            timestamps.add(millis);
+        }
+
+        int accentColor = androidx.core.content.ContextCompat.getColor(this, R.color.accent_primary);
+        int textColor = androidx.core.content.ContextCompat.getColor(this, R.color.text_secondary);
+
+        LineDataSet dataSet = new LineDataSet(entries, "");
+        dataSet.setColor(accentColor);
+        dataSet.setCircleColor(accentColor);
+        dataSet.setCircleRadius(4f);
+        dataSet.setLineWidth(2f);
+        dataSet.setDrawValues(true);
+        dataSet.setValueTextSize(10f);
+        dataSet.setValueTextColor(accentColor);
+        dataSet.setValueFormatter(new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                return GrokSearchService.formatPrice(value);
+            }
+        });
+        dataSet.setMode(LineDataSet.Mode.CUBIC_BEZIER);
+        dataSet.setDrawFilled(true);
+        dataSet.setFillColor(accentColor);
+        dataSet.setFillAlpha(30);
+
+        LineData lineData = new LineData(dataSet);
+        chartPrice.setData(lineData);
+
+        DateTimeFormatter fmt = DateTimeFormatter.ofPattern("dd/MM", Locale.getDefault());
+        XAxis xAxis = chartPrice.getXAxis();
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setTextColor(textColor);
+        xAxis.setDrawGridLines(false);
+        xAxis.setGranularity(1f);
+        xAxis.setValueFormatter(new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                long millis = baseTime + (long) (value * 1000L * 60 * 60 * 24);
+                try {
+                    return Instant.ofEpochMilli(millis)
+                            .atZone(ZoneId.systemDefault())
+                            .format(fmt);
+                } catch (Exception e) {
+                    return "";
+                }
+            }
+        });
+
+        chartPrice.getAxisLeft().setTextColor(textColor);
+        chartPrice.getAxisLeft().setDrawGridLines(true);
+        chartPrice.getAxisLeft().setGridColor(
+                androidx.core.content.ContextCompat.getColor(this, R.color.divider));
+        chartPrice.getAxisLeft().setValueFormatter(new ValueFormatter() {
+            @Override
+            public String getFormattedValue(float value) {
+                return "R$" + String.format(Locale.getDefault(), "%.0f", value);
+            }
+        });
+        chartPrice.getAxisRight().setEnabled(false);
+        chartPrice.getDescription().setEnabled(false);
+        chartPrice.getLegend().setEnabled(false);
+        chartPrice.setTouchEnabled(true);
+        chartPrice.setDragEnabled(true);
+        chartPrice.setScaleEnabled(false);
+        chartPrice.setPinchZoom(false);
+        chartPrice.setExtraBottomOffset(8f);
+        chartPrice.invalidate();
+
+        cardChart.setVisibility(View.VISIBLE);
     }
 
     private String formatDate(String iso) {
