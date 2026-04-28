@@ -9,6 +9,7 @@ public class PriceSnapshot {
     private String tweetUrl;
     private String tweetDate;
     private String capturedAt;
+    private String productName;
 
     public PriceSnapshot() {}
 
@@ -42,4 +43,7 @@ public class PriceSnapshot {
 
     public String getCapturedAt() { return capturedAt; }
     public void setCapturedAt(String capturedAt) { this.capturedAt = capturedAt; }
+
+    public String getProductName() { return productName; }
+    public void setProductName(String productName) { this.productName = productName; }
 }

@@ -354,6 +354,41 @@ public class SupabaseService {
         return s;
     }
 
+    public List<PriceSnapshot> getRecentDeals(String token, List<String> productIds, String cutoffIso) throws IOException {
+        if (productIds.isEmpty()) return new ArrayList<>();
+
+        StringBuilder inFilter = new StringBuilder("(");
+        for (int i = 0; i < productIds.size(); i++) {
+            if (i > 0) inFilter.append(",");
+            inFilter.append(productIds.get(i));
+        }
+        inFilter.append(")");
+
+        String encodedCutoff = URLEncoder.encode(cutoffIso, StandardCharsets.UTF_8.toString());
+        String url = baseUrl + "/rest/v1/price_snapshots"
+                + "?select=*,products(name)"
+                + "&product_id=in." + inFilter
+                + "&tweet_date=gte." + encodedCutoff
+                + "&order=tweet_date.desc"
+                + "&limit=50";
+
+        try (Response r = http.newCall(authGet(token, url)).execute()) {
+            String rb = r.body().string();
+            if (!r.isSuccessful()) throw new IOException("Erro ao buscar ofertas");
+            List<PriceSnapshot> list = new ArrayList<>();
+            for (JsonElement el : JsonParser.parseString(rb).getAsJsonArray()) {
+                JsonObject o = el.getAsJsonObject();
+                PriceSnapshot s = parseSnapshot(o);
+                if (o.has("products") && !o.get("products").isJsonNull()) {
+                    JsonObject prod = o.getAsJsonObject("products");
+                    s.setProductName(str(prod, "name"));
+                }
+                list.add(s);
+            }
+            return list;
+        }
+    }
+
     // ─── Trending ────────────────────────────────────────────────────────────
 
     public List<Product> getTrending(String token) throws IOException {

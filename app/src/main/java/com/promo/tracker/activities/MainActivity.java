@@ -28,8 +28,10 @@ import androidx.work.WorkManager;
 import com.google.android.material.chip.Chip;
 import com.google.android.material.chip.ChipGroup;
 import com.promo.tracker.R;
+import com.promo.tracker.adapters.DealAdapter;
 import com.promo.tracker.adapters.ProductAdapter;
 import com.promo.tracker.billing.SubscriptionManager;
+import com.promo.tracker.models.PriceSnapshot;
 import com.promo.tracker.models.Product;
 import com.promo.tracker.models.User;
 import com.promo.tracker.services.SupabaseService;
@@ -42,10 +44,15 @@ import com.promo.tracker.utils.PushTokenManager;
 import com.promo.tracker.utils.SessionManager;
 import com.promo.tracker.work.OnDemandAnalysisWorker;
 
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.stream.Collectors;
 
 public class MainActivity extends AppCompatActivity
         implements ProductAdapter.Listener {
@@ -68,6 +75,17 @@ public class MainActivity extends AppCompatActivity
     private ChipGroup chipGroupTrending;
     private ProgressBar progressBar;
     private SwipeRefreshLayout swipeRefresh;
+
+    // Deals
+    private LinearLayout layoutDeals, layoutDealsEmpty;
+    private RecyclerView recyclerDeals;
+    private ChipGroup chipGroupPeriod;
+    private ProgressBar progressDeals;
+    private DealAdapter dealAdapter;
+    private final List<PriceSnapshot> deals = new ArrayList<>();
+
+    private enum DealPeriod { TODAY, WEEK, MONTH }
+    private DealPeriod currentPeriod = DealPeriod.WEEK;
 
     private final List<Product> products = new ArrayList<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
@@ -94,6 +112,7 @@ public class MainActivity extends AppCompatActivity
         setupRecycler();
         initNotificationSupport();
         analysisManager = new ProductAnalysisManager(this, currentUser);
+        setupDeals();
         loadProducts();
         refreshSubscription();
     }
@@ -126,6 +145,11 @@ public class MainActivity extends AppCompatActivity
         chipGroupTrending = findViewById(R.id.chip_group_trending);
         progressBar      = findViewById(R.id.progress_bar);
         swipeRefresh     = findViewById(R.id.swipe_refresh);
+        layoutDeals      = findViewById(R.id.layout_deals);
+        layoutDealsEmpty = findViewById(R.id.layout_deals_empty);
+        recyclerDeals    = findViewById(R.id.recycler_deals);
+        chipGroupPeriod  = findViewById(R.id.chip_group_period);
+        progressDeals    = findViewById(R.id.progress_deals);
     }
 
     private void setupHeader() {
@@ -244,6 +268,7 @@ public class MainActivity extends AppCompatActivity
                     if (products.isEmpty()) {
                         loadTrending();
                     }
+                    loadDeals();
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> {
@@ -453,6 +478,74 @@ public class MainActivity extends AppCompatActivity
                 });
             } catch (Exception e) {
                 runOnUiThread(() -> toast("Erro: " + e.getMessage()));
+            }
+        });
+    }
+
+    private void setupDeals() {
+        dealAdapter = new DealAdapter(deals);
+        recyclerDeals.setLayoutManager(new NonScrollableLinearLayoutManager(this));
+        recyclerDeals.setAdapter(dealAdapter);
+        recyclerDeals.setNestedScrollingEnabled(false);
+        recyclerDeals.setHasFixedSize(false);
+
+        Chip chipWeek = findViewById(R.id.chip_week);
+        chipWeek.setChecked(true);
+
+        chipGroupPeriod.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            int id = checkedIds.get(0);
+            if (id == R.id.chip_today) currentPeriod = DealPeriod.TODAY;
+            else if (id == R.id.chip_week) currentPeriod = DealPeriod.WEEK;
+            else if (id == R.id.chip_month) currentPeriod = DealPeriod.MONTH;
+            loadDeals();
+        });
+    }
+
+    private void loadDeals() {
+        if (products.isEmpty()) {
+            layoutDeals.setVisibility(View.GONE);
+            return;
+        }
+        layoutDeals.setVisibility(View.VISIBLE);
+        progressDeals.setVisibility(View.VISIBLE);
+        layoutDealsEmpty.setVisibility(View.GONE);
+        recyclerDeals.setVisibility(View.GONE);
+
+        List<String> productIds = products.stream()
+                .map(Product::getId).collect(Collectors.toList());
+
+        Instant cutoff;
+        ZoneId zone = ZoneId.systemDefault();
+        switch (currentPeriod) {
+            case TODAY: cutoff = LocalDate.now(zone).atStartOfDay(zone).toInstant(); break;
+            case MONTH: cutoff = LocalDate.now(zone).minusDays(30).atStartOfDay(zone).toInstant(); break;
+            default:    cutoff = LocalDate.now(zone).minusDays(7).atStartOfDay(zone).toInstant(); break;
+        }
+
+        executor.execute(() -> {
+            try {
+                List<PriceSnapshot> loaded = SupabaseService.getInstance()
+                        .getRecentDeals(currentUser.getAccessToken(), productIds, cutoff.toString());
+                runOnUiThread(() -> {
+                    progressDeals.setVisibility(View.GONE);
+                    deals.clear();
+                    deals.addAll(loaded);
+                    dealAdapter.notifyDataSetChanged();
+                    if (deals.isEmpty()) {
+                        layoutDealsEmpty.setVisibility(View.VISIBLE);
+                        recyclerDeals.setVisibility(View.GONE);
+                    } else {
+                        layoutDealsEmpty.setVisibility(View.GONE);
+                        recyclerDeals.setVisibility(View.VISIBLE);
+                    }
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    progressDeals.setVisibility(View.GONE);
+                    layoutDealsEmpty.setVisibility(View.VISIBLE);
+                    recyclerDeals.setVisibility(View.GONE);
+                });
             }
         });
     }
