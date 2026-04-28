@@ -76,7 +76,7 @@
     <string name="subscription_current_plan">Plano atual: %s</string>
     <string name="subscription_free_name">Gratuito</string>
     <string name="subscription_premium_name">Premium</string>
-    <string name="subscription_premium_price">R$ 19,90/mês</string>
+    <string name="subscription_premium_price">R$ 9,90/mês</string>
     <string name="subscription_subscribe_btn">Assinar Premium</string>
     <string name="subscription_manage_btn">Gerenciar Assinatura</string>
     <string name="subscription_benefits_title">Vantagens do Premium</string>
