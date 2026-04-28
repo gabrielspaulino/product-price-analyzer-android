@@ -368,8 +368,8 @@ public class SupabaseService {
         String url = baseUrl + "/rest/v1/price_snapshots"
                 + "?select=*,products(name)"
                 + "&product_id=in." + inFilter
-                + "&captured_at=gte." + encodedCutoff
-                + "&order=captured_at.desc"
+                + "&tweet_date=gte." + encodedCutoff
+                + "&order=tweet_date.desc"
                 + "&limit=50";
 
         try (Response r = http.newCall(authGet(token, url)).execute()) {

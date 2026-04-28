@@ -45,6 +45,8 @@ import com.promo.tracker.utils.SessionManager;
 import com.promo.tracker.work.OnDemandAnalysisWorker;
 
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -514,10 +516,11 @@ public class MainActivity extends AppCompatActivity
                 .map(Product::getId).collect(Collectors.toList());
 
         Instant cutoff;
+        ZoneId zone = ZoneId.systemDefault();
         switch (currentPeriod) {
-            case TODAY: cutoff = Instant.now().truncatedTo(ChronoUnit.DAYS); break;
-            case MONTH: cutoff = Instant.now().minus(30, ChronoUnit.DAYS); break;
-            default:    cutoff = Instant.now().minus(7, ChronoUnit.DAYS); break;
+            case TODAY: cutoff = LocalDate.now(zone).atStartOfDay(zone).toInstant(); break;
+            case MONTH: cutoff = LocalDate.now(zone).minusDays(30).atStartOfDay(zone).toInstant(); break;
+            default:    cutoff = LocalDate.now(zone).minusDays(7).atStartOfDay(zone).toInstant(); break;
         }
 
         executor.execute(() -> {
