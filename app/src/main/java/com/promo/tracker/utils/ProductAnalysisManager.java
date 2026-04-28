@@ -51,8 +51,11 @@ public class ProductAnalysisManager {
                 SupabaseService.getInstance().updateProductPrice(
                         currentUser.getAccessToken(), product.getId(), finalLowest);
                 product.setCurrentPrice(finalLowest);
-                product.setLastUpdated(Instant.now().toString());
+            } else {
+                SupabaseService.getInstance().updateProductLastUpdated(
+                        currentUser.getAccessToken(), product.getId());
             }
+            product.setLastUpdated(Instant.now().toString());
             product.setAnalyzing(false);
             product.setStatus(finalLowest > 0 ? "success" : "idle");
 

@@ -49,7 +49,12 @@ import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.stream.Collectors;
@@ -88,6 +93,8 @@ public class MainActivity extends AppCompatActivity
     private DealPeriod currentPeriod = DealPeriod.WEEK;
 
     private final List<Product> products = new ArrayList<>();
+    private final Set<String> analyzingProductIds = new HashSet<>();
+    private final Map<String, UUID> analyzingWorkRequestIds = new HashMap<>();
     private final ExecutorService executor = Executors.newFixedThreadPool(3);
     private SessionManager session;
     private User currentUser;
@@ -263,6 +270,12 @@ public class MainActivity extends AppCompatActivity
                     swipeRefresh.setRefreshing(false);
                     products.clear();
                     products.addAll(loaded);
+                    for (Product p : products) {
+                        if (analyzingProductIds.contains(p.getId())) {
+                            p.setAnalyzing(true);
+                            p.setStatus("loading");
+                        }
+                    }
                     adapter.notifyDataSetChanged();
                     updateEmptyState();
                     if (products.isEmpty()) {
@@ -346,6 +359,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void analyze(Product product) {
+        if (analyzingProductIds.contains(product.getId())) return;
         if (!subscriptionManager.canAnalyze()) {
             showUpgradeDialog(getString(R.string.paywall_msg_analyses,
                     SubscriptionManager.FREE_MAX_WEEKLY_ANALYSES));
@@ -366,6 +380,7 @@ public class MainActivity extends AppCompatActivity
         }
         toast("Analisando produto(s)…");
         for (Product product : new ArrayList<>(products)) {
+            if (analyzingProductIds.contains(product.getId())) continue;
             if (!subscriptionManager.canAnalyze()) {
                 toast("Limite de análises atingido");
                 break;
@@ -378,6 +393,7 @@ public class MainActivity extends AppCompatActivity
     }
 
     private void enqueueAnalysis(Product product) {
+        String productId = product.getId();
         OneTimeWorkRequest request = new OneTimeWorkRequest.Builder(OnDemandAnalysisWorker.class)
                 .setInputData(OnDemandAnalysisWorker.buildInputData(product))
                 .setConstraints(new Constraints.Builder()
@@ -385,37 +401,54 @@ public class MainActivity extends AppCompatActivity
                         .build())
                 .build();
 
+        analyzingWorkRequestIds.put(productId, request.getId());
         WorkManager.getInstance(this).enqueue(request);
         WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.getId())
                 .observe(this, workInfo -> {
                     if (workInfo == null) return;
+                    if (!workInfo.getState().isFinished()) return;
+
+                    analyzingProductIds.remove(productId);
+                    analyzingWorkRequestIds.remove(productId);
+                    Product current = findProductById(productId);
+                    if (current == null) return;
+
+                    current.setAnalyzing(false);
+                    int idx = products.indexOf(current);
+
                     if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
-                        product.setAnalyzing(false);
-                        product.setStatus("success");
+                        current.setStatus("success");
                         double price = workInfo.getOutputData().getDouble(
                                 OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
                         if (price > 0) {
-                            product.setCurrentPrice(price);
-                            product.setLastUpdated(java.time.Instant.now().toString());
+                            current.setCurrentPrice(price);
                         }
-                        int idx = products.indexOf(product);
+                        current.setLastUpdated(java.time.Instant.now().toString());
                         if (idx >= 0) adapter.notifyItemChanged(idx);
-                        if (product.isTargetReached()) {
-                            toast(product.getName() + " atingiu o preço alvo!");
+                        if (current.isTargetReached()) {
+                            toast(current.getName() + " atingiu o preço alvo!");
                         }
                     } else if (workInfo.getState() == WorkInfo.State.FAILED) {
-                        product.setAnalyzing(false);
-                        product.setStatus("error");
-                        int idx = products.indexOf(product);
+                        current.setStatus("error");
                         if (idx >= 0) adapter.notifyItemChanged(idx);
                         String error = workInfo.getOutputData().getString(
                                 OnDemandAnalysisWorker.KEY_RESULT_ERROR);
                         toast("Erro: " + (error != null ? error : "Erro inesperado"));
+                    } else {
+                        if (idx >= 0) adapter.notifyItemChanged(idx);
                     }
                 });
     }
 
+    private Product findProductById(String id) {
+        for (Product p : products) {
+            if (p.getId().equals(id)) return p;
+        }
+        return null;
+    }
+
     private void markProductLoading(Product product) {
+        analyzingProductIds.add(product.getId());
         int idx = products.indexOf(product);
         product.setAnalyzing(true);
         product.setStatus("loading");
@@ -443,6 +476,11 @@ public class MainActivity extends AppCompatActivity
         i.putExtra("current_price", p.getCurrentPrice() != null ? p.getCurrentPrice() : -1.0);
         i.putExtra("target_price",  p.getTargetPrice()  != null ? p.getTargetPrice()  : -1.0);
         i.putExtra("last_updated",  p.getLastUpdated());
+        boolean isAnalyzing = analyzingProductIds.contains(p.getId());
+        i.putExtra("is_analyzing", isAnalyzing);
+        if (isAnalyzing && analyzingWorkRequestIds.containsKey(p.getId())) {
+            i.putExtra("work_request_id", analyzingWorkRequestIds.get(p.getId()).toString());
+        }
         startActivityForResult(i, 100);
     }
 

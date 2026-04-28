@@ -173,6 +173,11 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
 
     if (snapshots.length === 0) {
       console.log(`[ANALYZE] No snapshots found for "${target.product_name}"`);
+      const { error } = await supabase
+        .from("products")
+        .update({ last_updated: new Date().toISOString() })
+        .eq("id", target.product_id);
+      if (error) throw error;
       return {
         productId: target.product_id,
         snapshotsSaved: 0,
@@ -186,7 +191,8 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
     let notificationsSent = 0;
     for (const snapshot of snapshots) {
       snapshot.product_id = target.product_id;
-      const { error } = await supabase.from("price_snapshots").insert(snapshot);
+      const { error } = await supabase.from("price_snapshots")
+        .upsert(snapshot, { onConflict: "product_id,tweet_url", ignoreDuplicates: true });
       if (error) throw error;
       try {
         notificationsSent += await sendNotificationsForSnapshot(target, snapshot);
@@ -196,17 +202,18 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
       lowestPrice = Math.min(lowestPrice, snapshot.price);
     }
 
+    const updatePayload: Record<string, unknown> = {
+      last_updated: new Date().toISOString(),
+    };
     if (Number.isFinite(lowestPrice)) {
-      const { error } = await supabase
-        .from("products")
-        .update({
-          current_price: lowestPrice,
-          status: "success",
-          last_updated: new Date().toISOString(),
-        })
-        .eq("id", target.product_id);
-      if (error) throw error;
+      updatePayload.current_price = lowestPrice;
+      updatePayload.status = "success";
     }
+    const { error } = await supabase
+      .from("products")
+      .update(updatePayload)
+      .eq("id", target.product_id);
+    if (error) throw error;
 
     return {
       productId: target.product_id,
@@ -264,6 +271,8 @@ async function searchTwitterPrices(
   const organic = Array.isArray(json.organic) ? json.organic as SerperOrganicResult[] : [];
   console.log(`[SERPER] "${productName}" returned ${organic.length} organic results`);
   const snapshots: PriceSnapshot[] = [];
+  const fromDate = lastUpdated?.split("T")[0];
+  const cutoff = fromDate ? new Date(fromDate + "T00:00:00Z").getTime() : 0;
 
   for (const item of organic) {
     if (Date.now() - startedAt > WALL_CLOCK_LIMIT_MS) break;
@@ -281,13 +290,23 @@ async function searchTwitterPrices(
       console.log(`[EXTRACT] "${productName}" result for "${link}": price=${price}`);
       if (price == null) continue;
 
+      const tweetDate = item.date ? parseTweetDate(item.date) : null;
+      if (cutoff && tweetDate) {
+        try {
+          if (new Date(tweetDate).getTime() < cutoff) {
+            console.log(`[FILTER] Skipping old deal (${tweetDate} < ${fromDate}): "${link}"`);
+            continue;
+          }
+        } catch { /* keep if date parsing fails */ }
+      }
+
       snapshots.push({
         product_id: "",
         price,
         source_account: extractTwitterHandle(link),
         tweet_excerpt: snippet ? snippet.slice(0, 280) : null,
         tweet_url: link,
-        tweet_date: item.date ? parseTweetDate(item.date) : null,
+        tweet_date: tweetDate,
       });
     } catch (error) {
       console.error(`[EXTRACT] "${productName}" failed for "${link}":`, error);

@@ -11,7 +11,9 @@ const FETCH_TIMEOUT_MS = 120_000;
 const X_HANDLES = ["xetdaspromocoes", "urubupromo", "xetimporta"];
 
 const SEARCH_PROMPT_TEMPLATE =
-  `Search X for posts mentioning "%s" from @xetdaspromocoes, @urubupromo, or @xetimporta since %s.
+  `Search X for posts mentioning "%s" from @xetdaspromocoes, @urubupromo, or @xetimporta posted between %s and %s.
+
+Return ONLY posts from that date range. Ignore anything older.
 
 Keep ONLY genuine sales deals with clear price for the exact product.
 Convert Brazilian prices (R$ xx,xx) to decimal number (e.g. 90.86).
@@ -97,13 +99,15 @@ Deno.serve(async (req) => {
 
   const fromDate = body.last_updated?.split("T")[0] ??
     new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const toDate = new Date().toISOString().split("T")[0];
 
-  console.log(`[SEARCH] user=${user.id} product="${productName}" since=${fromDate}`);
+  console.log(`[SEARCH] user=${user.id} product="${productName}" from=${fromDate} to=${toDate}`);
 
   try {
     const prompt = SEARCH_PROMPT_TEMPLATE
       .replace("%s", productName)
-      .replace("%s", fromDate);
+      .replace("%s", fromDate)
+      .replace("%s", toDate);
 
     const payload = {
       model: GROK_MODEL,
@@ -112,6 +116,7 @@ Deno.serve(async (req) => {
         type: "x_search",
         allowed_x_handles: X_HANDLES,
         from_date: fromDate,
+        to_date: toDate,
       }],
       response_format: RESPONSE_SCHEMA,
       temperature: 0.0,
@@ -154,7 +159,17 @@ Deno.serve(async (req) => {
       deals = { deals: [] };
     }
 
-    console.log(`[SEARCH] Found ${deals.deals?.length ?? 0} deals for "${productName}"`);
+    const rawCount = deals.deals?.length ?? 0;
+    const cutoff = new Date(fromDate + "T00:00:00Z").getTime();
+    deals.deals = (deals.deals ?? []).filter((deal: { posted_at?: string | null }) => {
+      if (!deal.posted_at) return true;
+      try {
+        return new Date(deal.posted_at).getTime() >= cutoff;
+      } catch {
+        return true;
+      }
+    });
+    console.log(`[SEARCH] Found ${rawCount} deals, ${deals.deals.length} after date filter (>= ${fromDate}) for "${productName}"`);
     return json(deals);
   } catch (error) {
     console.error(`[SEARCH] Failed:`, error);
