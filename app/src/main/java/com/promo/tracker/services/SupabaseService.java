@@ -172,12 +172,14 @@ public class SupabaseService {
 
     public Product findOrCreateProduct(String token, String name) throws IOException {
         String normalized = name.toLowerCase().trim().replaceAll("\\s+", " ");
-        String encoded = URLEncoder.encode(normalized, StandardCharsets.UTF_8.toString());
+        String encoded = URLEncoder.encode(normalized, StandardCharsets.UTF_8.toString())
+                .replace("+", "%20");
+
+        String lookupUrl = baseUrl + "/rest/v1/products?normalized_name=eq." + encoded
+                + "&language=eq.pt&select=*";
 
         // Try find existing
-        String url = baseUrl + "/rest/v1/products?normalized_name=eq." + encoded
-                + "&language=eq.pt&select=*";
-        try (Response r = http.newCall(authGet(token, url)).execute()) {
+        try (Response r = http.newCall(authGet(token, lookupUrl)).execute()) {
             String rb = r.body().string();
             if (r.isSuccessful()) {
                 JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
@@ -201,10 +203,26 @@ public class SupabaseService {
                 .build();
         try (Response r = http.newCall(req).execute()) {
             String rb = r.body().string();
-            if (!r.isSuccessful()) throw new IOException("Erro ao criar produto");
-            JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
-            return parseProduct(arr.get(0).getAsJsonObject());
+            if (r.isSuccessful()) {
+                JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
+                return parseProduct(arr.get(0).getAsJsonObject());
+            }
+            if (r.code() == 409) {
+                return findExistingProduct(token, lookupUrl);
+            }
+            throw new IOException("Erro ao criar produto");
         }
+    }
+
+    private Product findExistingProduct(String token, String lookupUrl) throws IOException {
+        try (Response r = http.newCall(authGet(token, lookupUrl)).execute()) {
+            String rb = r.body().string();
+            if (r.isSuccessful()) {
+                JsonArray arr = JsonParser.parseString(rb).getAsJsonArray();
+                if (arr.size() > 0) return parseProduct(arr.get(0).getAsJsonObject());
+            }
+        }
+        throw new IOException("Erro ao criar produto");
     }
 
     private Product parseProduct(JsonObject p) {
