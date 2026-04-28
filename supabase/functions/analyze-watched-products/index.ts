@@ -173,6 +173,11 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
 
     if (snapshots.length === 0) {
       console.log(`[ANALYZE] No snapshots found for "${target.product_name}"`);
+      const { error } = await supabase
+        .from("products")
+        .update({ last_updated: new Date().toISOString() })
+        .eq("id", target.product_id);
+      if (error) throw error;
       return {
         productId: target.product_id,
         snapshotsSaved: 0,
@@ -197,17 +202,18 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
       lowestPrice = Math.min(lowestPrice, snapshot.price);
     }
 
+    const updatePayload: Record<string, unknown> = {
+      last_updated: new Date().toISOString(),
+    };
     if (Number.isFinite(lowestPrice)) {
-      const { error } = await supabase
-        .from("products")
-        .update({
-          current_price: lowestPrice,
-          status: "success",
-          last_updated: new Date().toISOString(),
-        })
-        .eq("id", target.product_id);
-      if (error) throw error;
+      updatePayload.current_price = lowestPrice;
+      updatePayload.status = "success";
     }
+    const { error } = await supabase
+      .from("products")
+      .update(updatePayload)
+      .eq("id", target.product_id);
+    if (error) throw error;
 
     return {
       productId: target.product_id,

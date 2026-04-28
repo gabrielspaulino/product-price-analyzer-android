@@ -422,8 +422,8 @@ public class MainActivity extends AppCompatActivity
                                 OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
                         if (price > 0) {
                             current.setCurrentPrice(price);
-                            current.setLastUpdated(java.time.Instant.now().toString());
                         }
+                        current.setLastUpdated(java.time.Instant.now().toString());
                         if (idx >= 0) adapter.notifyItemChanged(idx);
                         if (current.isTargetReached()) {
                             toast(current.getName() + " atingiu o preço alvo!");

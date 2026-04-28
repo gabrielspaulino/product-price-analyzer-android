@@ -290,6 +290,21 @@ public class SupabaseService {
         }
     }
 
+    public void updateProductLastUpdated(String token, String productId) throws IOException {
+        JsonObject body = new JsonObject();
+        body.addProperty("last_updated", Instant.now().toString());
+
+        Request req = new Request.Builder()
+                .url(baseUrl + "/rest/v1/products?id=eq." + productId)
+                .patch(body(body))
+                .addHeader("apikey", anonKey)
+                .addHeader("Authorization", "Bearer " + token)
+                .build();
+        try (Response r = http.newCall(req).execute()) {
+            if (!r.isSuccessful()) Log.e(TAG, "updateProductLastUpdated failed: " + r.code());
+        }
+    }
+
     // ─── Snapshots ───────────────────────────────────────────────────────────
 
     public void saveSnapshot(String token, PriceSnapshot snap) throws IOException {

@@ -245,9 +245,9 @@ public class ProductDetailActivity extends AppCompatActivity {
                 tvCurrentPrice.setText(GrokSearchService.formatPrice(price));
                 tvStatusBadge.setText("Atualizado");
                 tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
-                tvLastUpdated.setText("Atualizado: agora");
-                tvLastUpdated.setVisibility(View.VISIBLE);
             }
+            tvLastUpdated.setText("Atualizado: agora");
+            tvLastUpdated.setVisibility(View.VISIBLE);
             loadHistory();
             toast("Análise concluída!");
         } else if (workInfo.getState() == WorkInfo.State.FAILED) {
