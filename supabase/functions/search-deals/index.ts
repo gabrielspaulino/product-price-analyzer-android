@@ -154,7 +154,17 @@ Deno.serve(async (req) => {
       deals = { deals: [] };
     }
 
-    console.log(`[SEARCH] Found ${deals.deals?.length ?? 0} deals for "${productName}"`);
+    const rawCount = deals.deals?.length ?? 0;
+    const cutoff = new Date(fromDate + "T00:00:00Z").getTime();
+    deals.deals = (deals.deals ?? []).filter((deal: { posted_at?: string | null }) => {
+      if (!deal.posted_at) return true;
+      try {
+        return new Date(deal.posted_at).getTime() >= cutoff;
+      } catch {
+        return true;
+      }
+    });
+    console.log(`[SEARCH] Found ${rawCount} deals, ${deals.deals.length} after date filter (>= ${fromDate}) for "${productName}"`);
     return json(deals);
   } catch (error) {
     console.error(`[SEARCH] Failed:`, error);

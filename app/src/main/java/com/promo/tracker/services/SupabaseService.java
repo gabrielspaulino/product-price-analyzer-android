@@ -302,10 +302,11 @@ public class SupabaseService {
         if (snap.getTweetDate() != null)     body.addProperty("tweet_date", snap.getTweetDate());
 
         Request req = new Request.Builder()
-                .url(baseUrl + "/rest/v1/price_snapshots")
+                .url(baseUrl + "/rest/v1/price_snapshots?on_conflict=product_id,tweet_url")
                 .post(body(body))
                 .addHeader("apikey", anonKey)
                 .addHeader("Authorization", "Bearer " + token)
+                .addHeader("Prefer", "resolution=ignore-duplicates")
                 .build();
         try (Response r = http.newCall(req).execute()) {
             if (!r.isSuccessful()) Log.e(TAG, "saveSnapshot failed: " + r.code());
