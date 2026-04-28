@@ -191,9 +191,8 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
     let notificationsSent = 0;
     for (const snapshot of snapshots) {
       snapshot.product_id = target.product_id;
-      const { error } = await supabase.from("price_snapshots")
-        .upsert(snapshot, { onConflict: "product_id,tweet_url", ignoreDuplicates: true });
-      if (error) throw error;
+      const { error } = await supabase.from("price_snapshots").insert(snapshot);
+      if (error && error.code !== "23505") throw error;
       try {
         notificationsSent += await sendNotificationsForSnapshot(target, snapshot);
       } catch (notifyError) {

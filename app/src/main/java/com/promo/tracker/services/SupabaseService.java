@@ -317,14 +317,17 @@ public class SupabaseService {
         if (snap.getTweetDate() != null)     body.addProperty("tweet_date", snap.getTweetDate());
 
         Request req = new Request.Builder()
-                .url(baseUrl + "/rest/v1/price_snapshots?on_conflict=product_id,tweet_url")
+                .url(baseUrl + "/rest/v1/price_snapshots")
                 .post(body(body))
                 .addHeader("apikey", anonKey)
                 .addHeader("Authorization", "Bearer " + token)
-                .addHeader("Prefer", "resolution=ignore-duplicates")
                 .build();
         try (Response r = http.newCall(req).execute()) {
-            if (!r.isSuccessful()) Log.e(TAG, "saveSnapshot failed: " + r.code());
+            if (!r.isSuccessful() && r.code() != 409) {
+                String rb = r.body() != null ? r.body().string() : "";
+                Log.e(TAG, "saveSnapshot failed: " + r.code() + " " + rb);
+                throw new IOException("Erro ao salvar snapshot: " + r.code());
+            }
         }
     }
 
