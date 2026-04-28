@@ -60,6 +60,7 @@ public class ProductDetailActivity extends AppCompatActivity {
 
     private String productId, productName, watchId, lastUpdated;
     private double currentPrice, targetPrice;
+    private boolean isAnalyzing;
 
     private TextView tvProductName, tvCurrentPrice, tvLastUpdated,
             tvStatusBadge, tvTargetCurrent;
@@ -92,10 +93,21 @@ public class ProductDetailActivity extends AppCompatActivity {
         currentPrice = getIntent().getDoubleExtra("current_price", -1);
         targetPrice  = getIntent().getDoubleExtra("target_price", -1);
         lastUpdated  = getIntent().getStringExtra("last_updated");
+        isAnalyzing  = getIntent().getBooleanExtra("is_analyzing", false);
 
         bindViews();
         populateHeader();
         loadHistory();
+
+        if (isAnalyzing) {
+            btnAnalyze.setEnabled(false);
+            btnAnalyze.setText("Analisando…");
+            progressAnalyze.setVisibility(View.VISIBLE);
+            String workRequestIdStr = getIntent().getStringExtra("work_request_id");
+            if (workRequestIdStr != null) {
+                observePendingWork(java.util.UUID.fromString(workRequestIdStr));
+            }
+        }
     }
 
     private void bindViews() {
@@ -181,10 +193,12 @@ public class ProductDetailActivity extends AppCompatActivity {
     }
 
     private void analyzeNow() {
+        if (isAnalyzing) return;
         if (!subscriptionManager.canAnalyze()) {
             showUpgradeDialog();
             return;
         }
+        isAnalyzing = true;
         btnAnalyze.setEnabled(false);
         btnAnalyze.setText("Analisando…");
         progressAnalyze.setVisibility(View.VISIBLE);
@@ -206,33 +220,41 @@ public class ProductDetailActivity extends AppCompatActivity {
 
         WorkManager.getInstance(this).enqueue(request);
         WorkManager.getInstance(this).getWorkInfoByIdLiveData(request.getId())
-                .observe(this, workInfo -> {
-                    if (workInfo == null) return;
-                    if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
-                        double price = workInfo.getOutputData().getDouble(
-                                OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
-                        if (price > 0) {
-                            currentPrice = price;
-                            tvCurrentPrice.setText(GrokSearchService.formatPrice(price));
-                            tvStatusBadge.setText("Atualizado");
-                            tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
-                            tvLastUpdated.setText("Atualizado: agora");
-                            tvLastUpdated.setVisibility(View.VISIBLE);
-                        }
-                        progressAnalyze.setVisibility(View.GONE);
-                        btnAnalyze.setEnabled(true);
-                        btnAnalyze.setText("Analisar Agora");
-                        loadHistory();
-                        toast("Análise concluída!");
-                    } else if (workInfo.getState() == WorkInfo.State.FAILED) {
-                        progressAnalyze.setVisibility(View.GONE);
-                        btnAnalyze.setEnabled(true);
-                        btnAnalyze.setText("Analisar Agora");
-                        String error = workInfo.getOutputData().getString(
-                                OnDemandAnalysisWorker.KEY_RESULT_ERROR);
-                        toast("Erro: " + (error != null ? error : "Erro inesperado"));
-                    }
-                });
+                .observe(this, this::handleWorkInfoUpdate);
+    }
+
+    private void observePendingWork(java.util.UUID workId) {
+        WorkManager.getInstance(this).getWorkInfoByIdLiveData(workId)
+                .observe(this, this::handleWorkInfoUpdate);
+    }
+
+    private void handleWorkInfoUpdate(WorkInfo workInfo) {
+        if (workInfo == null) return;
+        if (!workInfo.getState().isFinished()) return;
+
+        isAnalyzing = false;
+        progressAnalyze.setVisibility(View.GONE);
+        btnAnalyze.setEnabled(true);
+        btnAnalyze.setText("Analisar Agora");
+
+        if (workInfo.getState() == WorkInfo.State.SUCCEEDED) {
+            double price = workInfo.getOutputData().getDouble(
+                    OnDemandAnalysisWorker.KEY_RESULT_PRICE, 0);
+            if (price > 0) {
+                currentPrice = price;
+                tvCurrentPrice.setText(GrokSearchService.formatPrice(price));
+                tvStatusBadge.setText("Atualizado");
+                tvStatusBadge.setBackgroundResource(R.drawable.bg_badge_success);
+                tvLastUpdated.setText("Atualizado: agora");
+                tvLastUpdated.setVisibility(View.VISIBLE);
+            }
+            loadHistory();
+            toast("Análise concluída!");
+        } else if (workInfo.getState() == WorkInfo.State.FAILED) {
+            String error = workInfo.getOutputData().getString(
+                    OnDemandAnalysisWorker.KEY_RESULT_ERROR);
+            toast("Erro: " + (error != null ? error : "Erro inesperado"));
+        }
     }
 
     private void saveTarget() {
