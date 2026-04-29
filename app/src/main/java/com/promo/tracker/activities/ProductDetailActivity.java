@@ -40,14 +40,17 @@ import com.github.mikephil.charting.formatter.ValueFormatter;
 
 import java.text.SimpleDateFormat;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -400,25 +403,29 @@ public class ProductDetailActivity extends AppCompatActivity {
             return;
         }
 
-        withDates.sort((a, b) -> {
-            long ta = parseSortableDate(a.getTweetDate() != null ? a.getTweetDate() : a.getCapturedAt());
-            long tb = parseSortableDate(b.getTweetDate() != null ? b.getTweetDate() : b.getCapturedAt());
-            return Long.compare(ta, tb);
-        });
-
-        long baseTime = parseSortableDate(
-                withDates.get(0).getTweetDate() != null
-                        ? withDates.get(0).getTweetDate()
-                        : withDates.get(0).getCapturedAt());
-
-        List<Entry> entries = new ArrayList<>();
-        List<Long> timestamps = new ArrayList<>();
+        Map<LocalDate, Double> lowestPerDay = new LinkedHashMap<>();
         for (PriceSnapshot s : withDates) {
             String dateStr = s.getTweetDate() != null ? s.getTweetDate() : s.getCapturedAt();
             long millis = parseSortableDate(dateStr);
-            float dayOffset = (millis - baseTime) / (1000f * 60 * 60 * 24);
-            entries.add(new Entry(dayOffset, (float) s.getPrice()));
-            timestamps.add(millis);
+            LocalDate day = Instant.ofEpochMilli(millis).atZone(ZoneId.systemDefault()).toLocalDate();
+            Double existing = lowestPerDay.get(day);
+            if (existing == null || s.getPrice() < existing) {
+                lowestPerDay.put(day, s.getPrice());
+            }
+        }
+
+        if (lowestPerDay.size() < 2) {
+            cardChart.setVisibility(View.GONE);
+            return;
+        }
+
+        LocalDate firstDay = lowestPerDay.keySet().iterator().next();
+        long baseTime = firstDay.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+
+        List<Entry> entries = new ArrayList<>();
+        for (Map.Entry<LocalDate, Double> e : lowestPerDay.entrySet()) {
+            int dayOffset = (int) (e.getKey().toEpochDay() - firstDay.toEpochDay());
+            entries.add(new Entry(dayOffset, e.getValue().floatValue()));
         }
 
         int accentColor = androidx.core.content.ContextCompat.getColor(this, R.color.accent_primary);
