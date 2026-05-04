@@ -393,7 +393,8 @@ public class ProductDetailActivity extends AppCompatActivity {
         List<PriceSnapshot> withDates = new ArrayList<>();
         for (PriceSnapshot s : data) {
             String dateStr = s.getTweetDate() != null ? s.getTweetDate() : s.getCapturedAt();
-            if (dateStr != null && !dateStr.isEmpty() && s.getPrice() > 0) {
+            if (dateStr != null && !dateStr.isEmpty()
+                    && s.getPrice() > 0 && parseSortableDate(dateStr) != Long.MIN_VALUE) {
                 withDates.add(s);
             }
         }
