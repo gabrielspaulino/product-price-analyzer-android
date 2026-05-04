@@ -47,7 +47,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.Date;
-import java.util.LinkedHashMap;
+import java.util.TreeMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -404,7 +404,7 @@ public class ProductDetailActivity extends AppCompatActivity {
             return;
         }
 
-        Map<LocalDate, Double> lowestPerDay = new LinkedHashMap<>();
+        Map<LocalDate, Double> lowestPerDay = new TreeMap<>();
         for (PriceSnapshot s : withDates) {
             String dateStr = s.getTweetDate() != null ? s.getTweetDate() : s.getCapturedAt();
             long millis = parseSortableDate(dateStr);
