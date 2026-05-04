@@ -4,12 +4,68 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const CRON_SECRET = Deno.env.get("CRON_SECRET") ?? "";
 const FIREBASE_SERVICE_ACCOUNT_JSON = Deno.env.get("FIREBASE_SERVICE_ACCOUNT_JSON") ?? "";
+const GROK_API_KEY = Deno.env.get("GROK_API_KEY") ?? "";
 
-const SERPER_URL = "https://google.serper.dev/search";
+const GROK_URL = "https://api.x.ai/v1/responses";
+const GROK_MODEL = "grok-4.20-reasoning";
+const X_HANDLES = ["xetdaspromocoes", "urubupromo", "xetimporta"];
 const JSON_HEADERS = { "Content-Type": "application/json" };
 const MAX_CONCURRENCY = 2;
 const WALL_CLOCK_LIMIT_MS = 120_000;
-const FETCH_TIMEOUT_MS = 30_000;
+const FETCH_TIMEOUT_MS = 120_000;
+
+const SEARCH_PROMPT_TEMPLATE =
+  `Search X for posts mentioning "%s" from @xetdaspromocoes, @urubupromo, or @xetimporta posted between %s and %s.
+
+Return ONLY posts from that date range. Ignore anything older.
+
+Keep ONLY genuine sales deals with clear price for the exact product.
+Convert Brazilian prices (R$ xx,xx) to decimal number (e.g. 90.86).
+
+Output **ONLY** the raw JSON. No explanations, no extra text.
+
+Use this exact structure:
+{
+  "deals": [
+    {
+      "url": "full post url",
+      "price": number or null,
+      "posted_at": "2026-04-17T13:33:30Z" or null,
+      "author": "username without @" or null,
+      "text": "full original post text"
+    }
+  ]
+}`;
+
+const RESPONSE_SCHEMA = {
+  type: "json_schema",
+  json_schema: {
+    name: "deals_response",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        deals: {
+          type: "array",
+          items: {
+            type: "object",
+            properties: {
+              url: { type: "string" },
+              price: { type: ["number", "null"] },
+              posted_at: { type: ["string", "null"] },
+              author: { type: ["string", "null"] },
+              text: { type: ["string", "null"] },
+            },
+            required: ["url", "price", "text"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["deals"],
+      additionalProperties: false,
+    },
+  },
+};
 
 type AnalysisTarget = {
   product_id: string;
@@ -18,15 +74,14 @@ type AnalysisTarget = {
   product_status: string | null;
   current_price: number | null;
   last_updated: string | null;
-  representative_user_id: string;
-  representative_serper_key: string;
 };
 
-type SerperOrganicResult = {
-  title?: string;
-  link?: string;
-  snippet?: string;
-  date?: string;
+type GrokDeal = {
+  url: string;
+  price: number | null;
+  posted_at: string | null;
+  author: string | null;
+  text: string | null;
 };
 
 type PriceSnapshot = {
@@ -75,10 +130,14 @@ Deno.serve(async (req) => {
     return json({ error: "Missing FIREBASE_SERVICE_ACCOUNT_JSON secret" }, 500);
   }
 
+  if (!GROK_API_KEY) {
+    return json({ error: "Missing GROK_API_KEY secret" }, 500);
+  }
+
   const startedAt = Date.now();
   console.log("[CRON] Starting analysis...");
   const targets = await getTargets();
-  console.log(`[CRON] Found ${targets.length} targets:`, targets.map(t => `${t.product_name} (key: ${t.representative_serper_key ? "YES" : "NO"})`));
+  console.log(`[CRON] Found ${targets.length} targets:`, targets.map(t => t.product_name));
   const results = await processInBatches(
     targets,
     MAX_CONCURRENCY,
@@ -103,14 +162,13 @@ Deno.serve(async (req) => {
 async function getTargets(): Promise<AnalysisTarget[]> {
   const { data: watches, error: watchError } = await supabase
     .from("product_watches")
-    .select("product_id, user_id")
+    .select("product_id")
     .eq("status", "active");
   if (watchError) throw watchError;
   console.log(`[TARGETS] Found ${watches?.length ?? 0} active watches`);
   if (!watches || watches.length === 0) return [];
 
   const productIds = [...new Set(watches.map((w: { product_id: string }) => w.product_id))];
-  const userIds = [...new Set(watches.map((w: { user_id: string }) => w.user_id))];
 
   const { data: products, error: productError } = await supabase
     .from("products")
@@ -118,47 +176,16 @@ async function getTargets(): Promise<AnalysisTarget[]> {
     .in("id", productIds);
   if (productError) throw productError;
 
-  const { data: credentials, error: credError } = await supabase
-    .from("api_credentials")
-    .select("user_id, serper_key")
-    .in("user_id", userIds)
-    .not("serper_key", "is", null);
-  if (credError) throw credError;
+  console.log(`[TARGETS] Found ${products?.length ?? 0} unique products`);
 
-  console.log(`[TARGETS] Found ${products?.length ?? 0} products, ${credentials?.length ?? 0} credentials`);
-
-  const serperKeyByUser = new Map<string, string>();
-  for (const cred of credentials ?? []) {
-    if (cred.serper_key) serperKeyByUser.set(cred.user_id, cred.serper_key);
-  }
-
-  const productMap = new Map<string, typeof products extends (infer T)[] ? T : never>();
-  for (const p of products ?? []) {
-    productMap.set(p.id, p);
-  }
-
-  const targetMap = new Map<string, AnalysisTarget>();
-  for (const watch of watches) {
-    const product = productMap.get(watch.product_id);
-    if (!product) continue;
-    if (targetMap.has(watch.product_id)) continue;
-
-    const serperKey = serperKeyByUser.get(watch.user_id);
-    if (!serperKey) continue;
-
-    targetMap.set(watch.product_id, {
-      product_id: product.id,
-      product_name: product.name,
-      normalized_name: product.normalized_name,
-      product_status: product.status,
-      current_price: product.current_price,
-      last_updated: product.last_updated,
-      representative_user_id: watch.user_id,
-      representative_serper_key: serperKey,
-    });
-  }
-
-  return [...targetMap.values()];
+  return (products ?? []).map((p) => ({
+    product_id: p.id,
+    product_name: p.name,
+    normalized_name: p.normalized_name,
+    product_status: p.status,
+    current_price: p.current_price,
+    last_updated: p.last_updated,
+  }));
 }
 
 async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise<ProductResult> {
@@ -167,8 +194,6 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
     const snapshots = await searchTwitterPrices(
       target.product_name,
       target.last_updated,
-      target.representative_serper_key,
-      startedAt,
     );
 
     if (snapshots.length === 0) {
@@ -238,146 +263,116 @@ async function analyzeTarget(target: AnalysisTarget, startedAt: number): Promise
 async function searchTwitterPrices(
   productName: string,
   lastUpdated: string | null,
-  serperKey: string,
-  startedAt: number,
 ): Promise<PriceSnapshot[]> {
+  const fromDate = lastUpdated?.split("T")[0] ??
+    new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
+  const toDate = new Date().toISOString().split("T")[0];
+
+  console.log(`[GROK] Searching "${productName}" from=${fromDate} to=${toDate}`);
+
+  const prompt = SEARCH_PROMPT_TEMPLATE
+    .replace("%s", productName)
+    .replace("%s", fromDate)
+    .replace("%s", toDate);
+
   const payload = {
-    q:
-      `site:x.com (x.com/xetdaspromocoes OR x.com/urubupromo OR x.com/xetimporta) "${productName}" ` +
-      (lastUpdated ? `since:${lastUpdated.split("T")[0]} ` : ""),
-    gl: "br",
-    hl: "pt-br",
-    type: "search",
-    num: 10,
-    engine: "google",
+    model: GROK_MODEL,
+    input: [{ role: "user", content: prompt }],
+    tools: [{
+      type: "x_search",
+      allowed_x_handles: X_HANDLES,
+      from_date: fromDate,
+      to_date: toDate,
+    }],
+    response_format: RESPONSE_SCHEMA,
+    temperature: 0.0,
+    max_output_tokens: 8192,
   };
 
-  const response = await fetchWithTimeout(SERPER_URL, {
+  const response = await fetchWithTimeout(GROK_URL, {
     method: "POST",
     headers: {
       ...JSON_HEADERS,
-      "X-API-KEY": serperKey,
+      Authorization: `Bearer ${GROK_API_KEY}`,
     },
     body: JSON.stringify(payload),
   });
 
+  const responseBody = await response.text();
   if (!response.ok) {
-    const errText = await response.text();
-    console.error(`[SERPER] Error ${response.status}: ${errText}`);
-    throw new Error(`Serper error: ${response.status} ${errText}`);
+    console.error(`[GROK] Error ${response.status}: ${responseBody}`);
+    throw new Error(`Grok API error: ${response.status}`);
   }
 
-  const json = await response.json();
-  const organic = Array.isArray(json.organic) ? json.organic as SerperOrganicResult[] : [];
-  console.log(`[SERPER] "${productName}" returned ${organic.length} organic results`);
-  const snapshots: PriceSnapshot[] = [];
-  const fromDate = lastUpdated?.split("T")[0];
-  const cutoff = fromDate ? new Date(fromDate + "T00:00:00Z").getTime() : 0;
+  const grokJson = JSON.parse(responseBody);
 
-  for (const item of organic) {
-    if (Date.now() - startedAt > WALL_CLOCK_LIMIT_MS) break;
+  if (grokJson.error) {
+    console.error(`[GROK] API error:`, grokJson.error);
+    throw new Error("Grok API returned error");
+  }
 
-    const link = item.link ?? "";
-    if (!link.includes("twitter.com") && !link.includes("x.com")) continue;
+  if (grokJson.status !== "completed") {
+    console.error(`[GROK] Incomplete:`, grokJson.incomplete_details);
+    throw new Error(`Grok response incomplete: ${grokJson.status}`);
+  }
 
-    const snippet = item.snippet?.trim() ?? "";
-    const title = item.title?.trim() ?? "";
-    const combined = `${title} ${snippet}`.trim();
-    if (!combined) continue;
+  const text = extractTextFromOutput(grokJson);
+  let parsed;
+  try {
+    parsed = JSON.parse(text);
+  } catch {
+    console.error(`[GROK] Failed to parse response: ${text}`);
+    parsed = { deals: [] };
+  }
 
+  const rawDeals: GrokDeal[] = parsed.deals ?? [];
+  const cutoff = new Date(fromDate + "T00:00:00Z").getTime();
+
+  const filteredDeals = rawDeals.filter((deal) => {
+    if (!deal.posted_at) return true;
     try {
-      const price = extractPrice(combined);
-      console.log(`[EXTRACT] "${productName}" result for "${link}": price=${price}`);
-      if (price == null) continue;
-
-      const tweetDate = item.date ? parseTweetDate(item.date) : null;
-      if (cutoff && tweetDate) {
-        try {
-          if (new Date(tweetDate).getTime() < cutoff) {
-            console.log(`[FILTER] Skipping old deal (${tweetDate} < ${fromDate}): "${link}"`);
-            continue;
-          }
-        } catch { /* keep if date parsing fails */ }
-      }
-
-      snapshots.push({
-        product_id: "",
-        price,
-        source_account: extractTwitterHandle(link),
-        tweet_excerpt: snippet ? snippet.slice(0, 280) : null,
-        tweet_url: link,
-        tweet_date: tweetDate,
-      });
-    } catch (error) {
-      console.error(`[EXTRACT] "${productName}" failed for "${link}":`, error);
+      return new Date(deal.posted_at).getTime() >= cutoff;
+    } catch {
+      return true;
     }
+  });
+
+  console.log(`[GROK] "${productName}" found ${rawDeals.length} deals, ${filteredDeals.length} after date filter`);
+
+  const snapshots: PriceSnapshot[] = [];
+  for (const deal of filteredDeals) {
+    if (!deal.url || deal.price == null) continue;
+
+    const excerpt = deal.text ? deal.text.slice(0, 280) : null;
+    snapshots.push({
+      product_id: "",
+      price: deal.price,
+      source_account: deal.author ? `@${deal.author}` : null,
+      tweet_excerpt: excerpt,
+      tweet_url: deal.url,
+      tweet_date: deal.posted_at ?? null,
+    });
   }
 
   return snapshots;
 }
 
-function extractPrice(text: string): number | null {
-  const matches = [...text.matchAll(/(\d{1,3}(?:\.\d{3})*,\d{2})/g)];
-  if (matches.length === 0) return null;
+function extractTextFromOutput(responseJson: Record<string, unknown>): string {
+  const output = responseJson.output as Array<Record<string, unknown>> | undefined;
+  if (!output) return '{"deals":[]}';
 
-  let lowest = Number.POSITIVE_INFINITY;
-  for (const match of matches) {
-    const raw = match[1].replace(/\./g, "").replace(",", ".");
-    const value = Number.parseFloat(raw);
-    if (Number.isFinite(value) && value > 0) lowest = Math.min(lowest, value);
-  }
-  return Number.isFinite(lowest) ? lowest : null;
-}
-
-const MONTH_MAP: Record<string, number> = {
-  jan: 0, january: 0, janeiro: 0,
-  feb: 1, fev: 1, february: 1, fevereiro: 1,
-  mar: 2, march: 2, "março": 2,
-  apr: 3, abr: 3, april: 3, abril: 3,
-  may: 4, mai: 4, maio: 4,
-  jun: 5, june: 5, junho: 5,
-  jul: 6, july: 6, julho: 6,
-  aug: 7, ago: 7, august: 7, agosto: 7,
-  sep: 8, set: 8, september: 8, setembro: 8,
-  oct: 9, out: 9, october: 9, outubro: 9,
-  nov: 10, november: 10, novembro: 10,
-  dec: 11, dez: 11, december: 11, dezembro: 11,
-};
-
-function parseTweetDate(dateText: string): string | null {
-  const text = dateText.trim().toLowerCase().replace(/\./g, "");
-  const now = new Date();
-
-  const relMatch = text.match(/(?:há\s+)?(\d+)\s*(hour|hora|day|dia|minute|minuto|min|h|d|m)s?\s*(?:ago|atrás)?/i);
-  if (relMatch) {
-    const amount = parseInt(relMatch[1], 10);
-    const unit = relMatch[2].toLowerCase();
-    const ms = unit.startsWith("h") || unit.startsWith("hora")
-      ? amount * 3600_000
-      : unit.startsWith("d") || unit.startsWith("dia")
-        ? amount * 86400_000
-        : amount * 60_000;
-    return new Date(now.getTime() - ms).toISOString();
-  }
-
-  for (const [name, idx] of Object.entries(MONTH_MAP)) {
-    const patterns = [
-      new RegExp(`${name}\\s+(\\d{1,2}),?\\s+(\\d{4})`),
-      new RegExp(`(\\d{1,2})\\s+(?:de\\s+)?${name}(?:\\s+(?:de\\s+)?(\\d{4}))?`),
-    ];
-    for (const pattern of patterns) {
-      const m = text.match(pattern);
-      if (m) {
-        const day = parseInt(m[1].length <= 2 ? m[1] : m[2], 10);
-        const year = parseInt(m[1].length === 4 ? m[1] : (m[2] ?? String(now.getFullYear())), 10);
-        const dayVal = patterns.indexOf(pattern) === 0 ? parseInt(m[1], 10) : day;
-        const yearVal = patterns.indexOf(pattern) === 0 ? parseInt(m[2], 10) : year;
-        return `${yearVal}-${String(idx + 1).padStart(2, "0")}-${String(dayVal).padStart(2, "0")}T12:00:00Z`;
+  let result = "";
+  for (const item of output) {
+    if (item.type !== "message") continue;
+    const content = item.content as Array<Record<string, unknown>> | undefined;
+    if (!content) continue;
+    for (const co of content) {
+      if (co.type === "output_text" && typeof co.text === "string") {
+        result += co.text;
       }
     }
   }
-
-  return null;
+  return result.trim() || '{"deals":[]}';
 }
 
 async function sendNotificationsForSnapshot(target: AnalysisTarget, snapshot: PriceSnapshot): Promise<number> {
@@ -599,15 +594,6 @@ async function signWithServiceAccountKey(unsigned: string, privateKeyPem: string
 
 function formatPriceBrl(price: number): string {
   return `R$ ${price.toFixed(2).replace(".", ",")}`;
-}
-
-function extractTwitterHandle(url: string): string {
-  try {
-    const parts = new URL(url).pathname.split("/").filter(Boolean);
-    return parts.length > 0 ? `@${parts[0]}` : "@xetdaspromocoes";
-  } catch {
-    return "@xetdaspromocoes";
-  }
 }
 
 function isUnregisteredFcmToken(errorBody: string): boolean {
