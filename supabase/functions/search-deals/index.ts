@@ -3,6 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const GROK_API_KEY = Deno.env.get("GROK_API_KEY") ?? "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
 const GROK_URL = "https://api.x.ai/v1/responses";
 const GROK_MODEL = "grok-4.20-reasoning";
@@ -73,12 +74,17 @@ Deno.serve(async (req) => {
     return json({ error: "Missing Authorization header" }, 401);
   }
 
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user }, error: authError } = await supabase.auth.getUser();
-  if (authError || !user) {
-    return json({ error: "Unauthorized" }, 401);
+  const bearerToken = authHeader.replace(/^Bearer\s+/i, "");
+  const isInternalCall = SUPABASE_SERVICE_ROLE_KEY && bearerToken === SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!isInternalCall) {
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      return json({ error: "Unauthorized" }, 401);
+    }
   }
 
   if (!GROK_API_KEY) {
@@ -99,9 +105,9 @@ Deno.serve(async (req) => {
 
   const fromDate = body.last_updated?.split("T")[0] ??
     new Date(Date.now() - 30 * 86400_000).toISOString().split("T")[0];
-  const toDate = new Date().toISOString().split("T")[0];
+  const toDate = new Date(Date.now() + 86400_000).toISOString().split("T")[0];
 
-  console.log(`[SEARCH] user=${user.id} product="${productName}" from=${fromDate} to=${toDate}`);
+  console.log(`[SEARCH] product="${productName}" from=${fromDate} to=${toDate}`);
 
   try {
     const prompt = SEARCH_PROMPT_TEMPLATE
